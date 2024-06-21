@@ -186,7 +186,7 @@ The displayed title is formatted according to `org-roam-node-display-template'."
          ;; do we sort, and if so, by what?
          (sort-fn (or sort-fn
                       ;; only do it if it not by file-mtime
-                      (when (and (not sort-fn) org-roam-node-default-sort)
+                      (when (and (not sort-by-mtime) org-roam-node-default-sort)
                         (intern (concat "org-roam-node-read-sort-by-"
                                         (symbol-name org-roam-node-default-sort))))))
          (nodes (if sort-fn (seq-sort sort-fn nodes)
