@@ -278,7 +278,7 @@ Specifically it improves the speed of the retrieval and
 and formatting of nodes from the database."
 
   :global t
-  :lighter   "_o-r-gt_"    ; lighter
+  :lighter   " _o-r-gt_"    ; lighter
   :keymap nil
   (if org-roam-gt-mode
       (org-roam-gt-mode-enable)
