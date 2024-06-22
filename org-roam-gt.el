@@ -115,11 +115,11 @@ GROUP BY id
 (defun org-roam-gt-node-list (sort-by-mtime)
   "Return all nodes stored in the database as a list of org-roam-node's.
 
-If SORT-BY-MTIME then order by mtime.
+If SORT-BY-MTIME then order by mtime in descending order.
 "
   (let* (
          (order-by (if sort-by-mtime
-                       "order by mtime"
+                       "order by mtime desc"
                      ""))
          (rows (org-roam-db-query
                 (format "%s\n%s" 
