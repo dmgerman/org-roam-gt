@@ -1,5 +1,5 @@
 
-
+(require 'hydra)
 
 ;;; Code;
 (defvar org-roam-gt-node-display-template #'org-roam-gt-default-format
@@ -240,7 +240,8 @@ This function is equivalent to the following template
                 \"${todo:10} \"
                 (propertize \"${tags:30} \" 'face 'org-tag)
                 \"${title:40} \"
-                \"${file}\"
+                \"${file:30}\"
+                \"${olp}\"
                 ))"
   (let (
         (formatted-node     (concat
@@ -252,24 +253,61 @@ This function is equivalent to the following template
                              (org-roam-gt--truncate (org-roam-node-title node) 40)
                              " "
                              (org-roam-gt--format-file
-                              (org-roam-node-file node))))
-        )
+                              (org-roam-node-file node))
+                             " "
+                             (string-join (org-roam-node-olp node) " > "))
+                            ))
     (cons
      (propertize formatted-node 'node node)
      node)))
 
+;; speed commands, use hydra for hierarchical commands
+(defhydra org-roam-gt-hydra (:hint nil :exit t)
+  "
+Org roam commands:
+_r_: Refile node
+_x_: eXtract subtree
+_q_: Quit            
+"
+
+  ("r" (org-roam-refile))
+  ("f" (org-roam-find-node))
+  ("x" (org-roam-extract-subtree))
+  ("q" nil))
+
+
+(defvar org-roam-gt-speed-commands-save org-speed-commands
+  "save the original speed commands so we can restore them if needed"
+  )
+
+(defun org-roam-gt-set-org-speed-commands ()
+  "update speed commands with our own."
+  (setq org-roam-gt-speed-commands-save org-speed-commands)
+  (setq org-speed-commands (append dmg-save-speed
+                                   (list (list "org-roam-gt commands")
+                                         (cons "m" 'org-roam-gt-hydra/body)
+                                         )))
+  )
+
+(defun org-roam-gt-reset-org-speed-commands ()
+  "update speed commands with our own."
+  (setq org-speed-commands org-roam-gt-speed-commands-save )
+  )
+
 ;; define a minor mode to enable/disable the changes
 
+
 (defun org-roam-gt-mode-enable ()
-"Callback when org-roam-mode is enabled."  
-(advice-add 'org-roam-node-read--completions :override #'org-roam-gt-node-read--completions)
+  "Callback when org-roam-mode is enabled."  
+  (advice-add 'org-roam-node-read--completions :override #'org-roam-gt-node-read--completions)
+  (org-roam-gt-set-org-speed-commands)
   )
 
 (defun org-roam-gt-mode-disable ()
   "Callback when org-roam-mode is disabled."  
-  (message "disabling")
-  (advice-remove 'org-roam-node-read--completions #'org-roam-gt-node-read--completions)
-  )
+  (message "disabling org-roam-gt mode")
+  (org-roam-gt-reset-org-speed-commands)
+  (advice-remove 'org-roam-node-read--completions #'org-roam-gt-node-read--completions))
 
 (define-minor-mode org-roam-gt-mode
   "Minor mode that enables improvements in speed in org-roam.
@@ -285,5 +323,9 @@ and formatting of nodes from the database."
     (org-roam-gt-mode-disable)
     )
   )
+
+;; these commands are always available
+
+
 
 (provide 'org-roam-gt)
