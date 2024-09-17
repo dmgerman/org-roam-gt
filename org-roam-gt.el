@@ -1,3 +1,42 @@
+;;; org-roam-gt.el --- improvements for org-roam                     -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2024 Daniel M. German
+
+;; Author: Daniel M. German <dmg@turingmachine.org>
+;; Keywords: lisp
+;; Version: 0.2
+
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; This module provides a minor mode called org-roam-gt that
+;; provides two major improvements to org-roam:
+
+;; 1) it improves significantly the speed of org-roam-node-find
+
+;; 2) it adds a submenu to org-speed-commands (accessible via 'm')
+
+;; How to use:
+;; 
+;; Simply enable the mode:
+;;  (org-roam-gt-mode)
+;;
+;; to disable, running the command again
+;; (org-roam-gt-mode)
+
+;;; Code:
 
 (require 'hydra)
 
@@ -325,7 +364,5 @@ and formatting of nodes from the database."
   )
 
 ;; these commands are always available
-
-
 
 (provide 'org-roam-gt)
