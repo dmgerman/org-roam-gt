@@ -3,7 +3,7 @@
 ;; Copyright (C) 2024 Daniel M. German
 
 ;; Author: Daniel M. German <dmg@turingmachine.org>
-;; Keywords: lisp
+;; Keywords: org-roam
 ;; Version: 0.2
 
 ;; This program is free software; you can redistribute it and/or modify
