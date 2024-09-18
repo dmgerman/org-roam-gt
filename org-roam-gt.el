@@ -25,8 +25,14 @@
 ;; provides two major improvements to org-roam:
 
 ;; 1) it improves significantly the speed of org-roam-node-find
-
-;; 2) it adds a submenu to org-speed-commands (accessible via 'm')
+;;    
+;; 2) The template passed to org-roam-node-find can be a function.
+;;    This improves its performance significantly. 
+;;    You can still pass a string, but I recommend you rewrite it as
+;;    a function. See org-roam-gt-default-format below which replaces
+;;    the default org-roam template
+;;    
+;; 3) it adds a submenu to org-speed-commands (accessible via 'm')
 
 ;; How to use:
 ;; 
@@ -34,7 +40,7 @@
 ;;  (org-roam-gt-mode)
 ;;
 ;; to disable, running the command again
-;; (org-roam-gt-mode)
+;;  (org-roam-gt-mode)
 
 ;;; Code:
 
@@ -362,7 +368,5 @@ and formatting of nodes from the database."
     (org-roam-gt-mode-disable)
     )
   )
-
-;; these commands are always available
 
 (provide 'org-roam-gt)
