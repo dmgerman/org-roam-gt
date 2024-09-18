@@ -1,0 +1,29 @@
+This module provides a minor mode called org-roam-gt that
+provides two major improvements to org-roam:
+
+1. it improves significantly the speed of ~org-roam-node-find~
+
+2. The template passed to ~org-roam-node-find~ can be a function.
+  This improves its performance significantly. 
+    You can still pass a string, but I recommend you rewrite it as
+    a function. See org-roam-gt-default-format below which replaces
+    the default org-roam template
+    
+3. it adds a submenu to org-speed-commands (accessible via 'm')
+
+How to use:
+ 
+ Simply enable the mode:
+
+ #+begin_src emacs-lisp   :exports both
+  (org-roam-gt-mode)
+ #+end_src
+
+ to disable, running the command again
+
+ #+begin_src    :exports both
+  (org-roam-gt-mode)
+ #+end_src
+
+
+
