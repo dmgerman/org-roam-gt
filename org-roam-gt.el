@@ -58,6 +58,9 @@ Its result is expected to be a string (potentially with
 embedded properties)."
   )
 
+(defvar org-roam-enable-speed-commands t
+  "If true, add a hydra to org speed commands (using the key m)" )
+
 ;; add a BOA constructor to org-roam-node.
 ;;
 ;; the constructor with named parameters is much slower than the boa one
@@ -345,13 +348,15 @@ _q_: Quit
 (defun org-roam-gt-mode-enable ()
   "Callback when org-roam-mode is enabled."  
   (advice-add 'org-roam-node-read--completions :override #'org-roam-gt-node-read--completions)
-  (org-roam-gt-set-org-speed-commands)
+  (if org-roam-enable-speed-commands
+      (org-roam-gt-set-org-speed-commands))
   )
 
 (defun org-roam-gt-mode-disable ()
   "Callback when org-roam-mode is disabled."  
   (message "disabling org-roam-gt mode")
-  (org-roam-gt-reset-org-speed-commands)
+  (if org-roam-enable-speed-commands
+      (org-roam-gt-reset-org-speed-commands))
   (advice-remove 'org-roam-node-read--completions #'org-roam-gt-node-read--completions))
 
 (define-minor-mode org-roam-gt-mode
