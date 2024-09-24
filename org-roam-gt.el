@@ -58,7 +58,7 @@ Its result is expected to be a string (potentially with
 embedded properties)."
   )
 
-(defvar org-roam-enable-speed-commands t
+(defvar org-roam-gt-enable-speed-commands t
   "If true, add a hydra to org speed commands (using the key m)" )
 
 ;; add a BOA constructor to org-roam-node.
@@ -331,7 +331,7 @@ _q_: Quit
 (defun org-roam-gt-set-org-speed-commands ()
   "update speed commands with our own."
   (setq org-roam-gt-speed-commands-save org-speed-commands)
-  (setq org-speed-commands (append dmg-save-speed
+  (setq org-speed-commands (append org-speed-commands
                                    (list (list "org-roam-gt commands")
                                          (cons "m" 'org-roam-gt-hydra/body)
                                          )))
@@ -348,14 +348,14 @@ _q_: Quit
 (defun org-roam-gt-mode-enable ()
   "Callback when org-roam-mode is enabled."  
   (advice-add 'org-roam-node-read--completions :override #'org-roam-gt-node-read--completions)
-  (if org-roam-enable-speed-commands
+  (if org-roam-gt-enable-speed-commands
       (org-roam-gt-set-org-speed-commands))
   )
 
 (defun org-roam-gt-mode-disable ()
   "Callback when org-roam-mode is disabled."  
   (message "disabling org-roam-gt mode")
-  (if org-roam-enable-speed-commands
+  (if org-roam-gt-enable-speed-commands
       (org-roam-gt-reset-org-speed-commands))
   (advice-remove 'org-roam-node-read--completions #'org-roam-gt-node-read--completions))
 
