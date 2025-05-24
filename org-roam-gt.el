@@ -43,6 +43,27 @@
 (require 'org-roam)
 
 ;;; Code;
+
+;; verify version
+
+(let* (
+       ;; we first have to clean up the junk from the org-roam-version
+       (raw-version (org-roam-version))
+       (org-roam-version0 (if (string-prefix-p "v" raw-version)
+                              (substring raw-version 1)
+                            raw-version))
+       (org-roam-version  (if (and (stringp org-roam-version0)
+                                   (string-match "-" org-roam-version0))
+                              (substring org-roam-version0 0 (match-beginning 0))))
+       (min-version "2.2.2")
+       )
+  (unless (version<= min-version org-roam-version)
+    (let (
+          (message (format "org-roam version %s or later required, but %s is loaded"
+                           min-version org-roam-version))
+          )
+     (error message))))
+
 (defvar org-roam-gt-enable-speed-commands t
   "If true, add a hydra to org speed commands (using the key m)" )
 
