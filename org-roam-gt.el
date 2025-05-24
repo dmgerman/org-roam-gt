@@ -110,11 +110,13 @@ This function is equivalent to the following template
 (defhydra org-roam-gt-hydra (:hint nil :exit t)
   "
 Org roam commands:
+_c_: org-roam Capture
+_f_: org-roam-refile
 _r_: Refile node
 _x_: eXtract subtree
 _q_: Quit            
 "
-
+  ("c" (org-roam-capture))
   ("r" (org-roam-refile))
   ("f" (org-roam-find-node))
   ("x" (org-roam-extract-subtree))
@@ -134,7 +136,9 @@ _q_: Quit
     (setq org-speed-commands (append org-speed-commands
                                      (list (list "org-roam-gt commands")
                                            (cons "m" 'org-roam-gt-hydra/body)
-                                           )))))
+                                           )))
+    (setq org-use-speed-commands t))
+  )
 
 (defun org-roam-gt-reset-org-speed-commands ()
   "remove org-speed commands."
