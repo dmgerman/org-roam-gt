@@ -110,8 +110,8 @@ This function is equivalent to the following template
                 (propertize \"${todo:10} \" 'face 'org-todo)
                 \"${todo:10} \"
                 (propertize \"${tags:30} \" 'face 'org-tag)
-                \"${title:40} \"
-                \"${file:30}\"
+                \"${title:80} \"
+                \"${file}\"
                 \"${olp}\"
                 ))"
   (concat
@@ -120,7 +120,8 @@ This function is equivalent to the following template
    (propertize
     (org-roam-gt--format-tags (org-roam-node-tags node) 30))
    " "
-   (org-roam-gt--truncate (org-roam-node-title node) 40)
+   (org-roam-gt--truncate (org-roam-node-title node) 80)
+;   (org-roam-node-title node)
    " "
    (org-roam-gt--format-file
     (org-roam-node-file node))
