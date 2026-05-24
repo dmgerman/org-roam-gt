@@ -120,7 +120,7 @@ org-roam operations:
 
 Speed commands are available when point is at the beginning of a heading.
 
-** Node display template
+** Faster node search
 
 When you invoke ~org-roam-node-find~, Emacs has to build the list of every
 node in your database before you can start typing.  On a large database this
