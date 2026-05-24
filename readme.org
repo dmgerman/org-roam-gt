@@ -38,9 +38,9 @@ by the mode and restore their previous state on disable.
 
 ** New capture target types
 
-Four new ~:target~ forms are available in ~org-roam-capture-templates~ once
-the mode is active.  They work alongside all existing types (~file~,
-~file+head~, ~node~, etc.) with no other configuration.
+The four new target types work alongside all existing ones (~file~,
+~file+head~, ~node~, etc.).  Your current templates need no changes — you
+simply add new templates that use the new target types.
 
 *** =(nodefunc FUNCTION)=
 
@@ -111,20 +111,24 @@ When ~org-roam-gt-enable-speed-commands~ is non-nil (the default), the key ~m~
 is added to ~org-speed-commands~.  It opens a hydra with shortcuts for common
 org-roam operations:
 
-| Key | Action |
-|-----+--------|
-| ~c~ | Capture (~org-roam-capture~) |
-| ~f~ | Find node (~org-roam-node-find~) |
-| ~r~ | Refile to a node |
-| ~x~ | Extract subtree |
+| Key | Action                         |
+|-----+--------------------------------|
+| ~c~   | Capture (~org-roam-capture~)     |
+| ~f~   | Find node (~org-roam-node-find~) |
+| ~r~   | Refile to a node               |
+| ~x~   | Extract subtree                |
 
 Speed commands are available when point is at the beginning of a heading.
 
 ** Node display template
 
-When ~org-roam-gt-enable-default-template-function~ is non-nil (the default),
-~org-roam-node-display-template~ is set to ~org-roam-gt-default-node-format~, a
-function rather than a string.  On large databases this is measurably faster
-because Emacs evaluates the function once per candidate rather than
-interpolating a format string with repeated property lookups.  The original
-value is restored when the mode is disabled.
+Org-roam identifies each node in the completion list using
+~org-roam-node-display-template~.  By default this is a string with
+~%~-placeholders, similar to a format string.  On large databases, building
+that string for every candidate on every keystroke becomes noticeably slow.
+
+~org-roam-gt~ replaces the template with a plain Lisp function
+(~org-roam-gt-default-node-format~) that produces the same display but runs
+faster.  No change to your workflow is needed — the completion interface looks
+and behaves identically.  The original template is restored if you disable the
+mode.
