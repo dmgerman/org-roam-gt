@@ -42,6 +42,13 @@ The four new target types work alongside all existing ones (~file~,
 ~file+head~, ~node~, etc.).  Your current templates need no changes — you
 simply add new templates that use the new target types.
 
+| Target type       | Destination node          | Position within node              |
+|-------------------+---------------------------+-----------------------------------|
+| ~nodefunc~          | Returned by a function    | Node entry point                  |
+| ~nodefunc+headline~ | Returned by a function    | Named heading (created if absent) |
+| ~node+headline~     | Fixed ID/title, or prompt | Named heading (created if absent) |
+| ~node+olp~          | Fixed ID/title, or prompt | Outline path (created if absent)  |
+
 *** =(nodefunc FUNCTION)=
 
 FUNCTION is called with no arguments and must return an ~org-roam-node~.
