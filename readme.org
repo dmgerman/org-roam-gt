@@ -38,16 +38,54 @@ by the mode and restore their previous state on disable.
 
 ** New capture target types
 
-The four new target types work alongside all existing ones (~file~,
-~file+head~, ~node~, etc.).  Your current templates need no changes — you
-simply add new templates that use the new target types.
+The four new target types work alongside all existing ones.  Your current
+templates need no changes — you simply add new templates that use the new
+target types.
+
+*Standard org-roam target types* (always available):
+
+| Target type       | Description                                              |
+|-------------------+----------------------------------------------------------|
+| ~file~              | Capture to a specific file                               |
+| ~file+head~         | Capture to a file; create it with a header if new        |
+| ~file+olp~          | Capture to a specific outline path within a file         |
+| ~file+head+olp~     | Combination of ~file+head~ and ~file+olp~                    |
+| ~file+datetree~     | Capture into a date-tree within a file                   |
+| ~node~              | Always prompts the user to find or create a node         |
+
+The limitation of ~node~ is that it always prompts — you cannot point it at a
+fixed destination or a computed one.  The new target types address this:
+
+*New target types added by ~org-roam-gt-mode~*:
 
 | Target type       | Destination node          | Position within node              |
 |-------------------+---------------------------+-----------------------------------|
+| ~node~              | Fixed ID/title, or prompt | Node entry point                  |
 | ~nodefunc~          | Returned by a function    | Node entry point                  |
 | ~nodefunc+headline~ | Returned by a function    | Named heading (created if absent) |
 | ~node+headline~     | Fixed ID/title, or prompt | Named heading (created if absent) |
 | ~node+olp~          | Fixed ID/title, or prompt | Outline path (created if absent)  |
+
+*** =(node TITLE-OR-ID)=
+
+The standard ~node~ target always prompts, even when you know the destination
+in advance.  With ~org-roam-gt-mode~, passing a string goes directly to that
+node by ID or title without prompting.  Passing ~nil~ still prompts, just as
+the standard ~node~ does.
+
+#+begin_src emacs-lisp
+;; Go directly to a specific node — no prompt
+'("f" "Farrington tip" entry
+  "** %?\n"
+  :target (node "mike-farrington-tips")
+  :unnarrowed t)
+
+;; Prompt the user to pick any node
+'("n" "Note" plain
+  "%?"
+  :target (node nil)
+  :unnarrowed t)
+#+end_src
 
 *** =(nodefunc FUNCTION)=
 
