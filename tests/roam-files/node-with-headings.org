@@ -1,0 +1,25 @@
+:PROPERTIES:
+:ID:       test-node-with-headings
+:END:
+#+title: Node With Headings
+
+This node has several headings for testing find/create logic.
+
+* Actions
+
+- [ ] First action item
+
+* Log
+
+Some log content here.
+
+* Wishlist
+
+- Item A
+- Item B
+
+* Nested
+
+** Deep Level
+
+Content at deep level.

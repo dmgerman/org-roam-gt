@@ -1,0 +1,6 @@
+:PROPERTIES:
+:ID:       test-empty-node
+:END:
+#+title: Empty Node
+
+This node has no headings.

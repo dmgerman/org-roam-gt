@@ -41,6 +41,7 @@
 
 (require 'hydra)
 (require 'org-roam)
+(require 'org-roam-gt-capture)
 
 ;;; Code;
 
@@ -139,7 +140,7 @@ _r_: Refile node
 _x_: eXtract subtree
 _q_: Quit            
 "
-  ("c" (org-roam-capture))
+  ("c" (org-roam-gt-capture))
   ("r" (org-roam-refile))
   ("f" (org-roam-find-node))
   ("x" (org-roam-extract-subtree))
@@ -182,15 +183,17 @@ _q_: Quit
 ;; define a minor mode to enable/disable the changes
 
 (defun org-roam-gt-mode-enable ()
-  "Callback when org-roam-mode is enabled."  
+  "Callback when org-roam-mode is enabled."
   (org-roam-gt-set-org-speed-commands)
-  (org-roam-gt-set-node-template))
+  (org-roam-gt-set-node-template)
+  (org-roam-gt-capture--enable))
 
 (defun org-roam-gt-mode-disable ()
-  "Callback when org-roam-mode is disabled."  
+  "Callback when org-roam-mode is disabled."
   (message "disabling org-roam-gt mode")
   (org-roam-gt-reset-org-speed-commands)
-  (org-roam-gt-reset-node-template))
+  (org-roam-gt-reset-node-template)
+  (org-roam-gt-capture--disable))
 
 (define-minor-mode org-roam-gt-mode
   "Minor mode that enables improvements in speed in org-roam.
