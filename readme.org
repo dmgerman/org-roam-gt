@@ -122,13 +122,14 @@ Speed commands are available when point is at the beginning of a heading.
 
 ** Node display template
 
-Org-roam identifies each node in the completion list using
-~org-roam-node-display-template~.  By default this is a string with
-~%~-placeholders, similar to a format string.  On large databases, building
-that string for every candidate on every keystroke becomes noticeably slow.
+When you invoke ~org-roam-node-find~, Emacs has to build the list of every
+node in your database before you can start typing.  On a large database this
+pause is long enough to interrupt your flow.  The delay comes from how each
+node's display line is constructed: org-roam uses a format string with
+~%~-placeholders, and assembling that string for every node on every
+invocation is slow.
 
-~org-roam-gt~ replaces the template with a plain Lisp function
-(~org-roam-gt-default-node-format~) that produces the same display but runs
-faster.  No change to your workflow is needed — the completion interface looks
-and behaves identically.  The original template is restored if you disable the
-mode.
+~org-roam-gt~ replaces the format string with a plain Lisp function that
+produces the same display but runs faster, which shortens the pause
+noticeably.  The completion interface looks and behaves identically.  The
+original template is restored if you disable the mode.
