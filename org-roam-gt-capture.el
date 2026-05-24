@@ -132,12 +132,18 @@ which are expanded via `org-roam-capture--fill-template'."
 
 (defun org-roam-gt-capture--find-node (title-or-id)
   "Return an org-roam-node for TITLE-OR-ID.
-If nil, prompts interactively (existing nodes only)."
+If nil, reuses `org-roam-capture--node' when it refers to an existing node
+\(i.e. has a file path), otherwise prompts interactively.
+This avoids a double prompt when `org-roam-capture' already asked the user
+to pick a node before displaying the template menu."
   (if title-or-id
       (or (org-roam-node-from-id title-or-id)
           (org-roam-node-from-title-or-alias title-or-id)
           (user-error "No node with title or id \"%s\"" title-or-id))
-    (org-roam-node-read nil (org-roam-capture--get :filter-fn) nil t)))
+    (if (and org-roam-capture--node
+             (org-roam-node-file org-roam-capture--node))
+        org-roam-capture--node
+      (org-roam-node-read nil (org-roam-capture--get :filter-fn) nil t))))
 
 ;;; Setup functions for each new target type
 
@@ -220,21 +226,19 @@ Returns point at the final heading."
   '(nodefunc nodefunc+headline node+headline node+olp)
   "Target type symbols handled by org-roam-gt-capture.")
 
-(defun org-roam-gt-capture--dispatch ()
-  "Handle new target types for org-roam-gt.
-Used as :before-until advice on `org-roam-capture--setup-target-location'.
-Returns an org ID string if the target type is handled, nil otherwise."
+(defun org-roam-gt-capture--dispatch (orig-fn)
+  "Around advice for `org-roam-capture--setup-target-location'.
+Handles new target types; calls ORIG-FN for standard types."
   (let* ((target-spec (org-roam-capture--get-target))
          (target-type (car target-spec)))
-    (when (memq target-type org-roam-gt-capture--node-target-types)
+    (if (not (memq target-type org-roam-gt-capture--node-target-types))
+        (funcall orig-fn)
       (let* ((position
               (pcase target-type
                 ('nodefunc          (org-roam-gt-capture--setup-nodefunc target-spec))
                 ('nodefunc+headline (org-roam-gt-capture--setup-nodefunc+headline target-spec))
                 ('node+headline     (org-roam-gt-capture--setup-node+headline target-spec))
                 ('node+olp          (org-roam-gt-capture--setup-node+olp target-spec))))
-             ;; For nodefunc, we're at the node entry itself — no ID inheritance.
-             ;; For heading/olp targets, inherit ID from parent.
              (inherit-id (not (eq target-type 'nodefunc))))
         (save-excursion
           (unless position
@@ -253,7 +257,7 @@ Returns an org ID string if the target type is handled, nil otherwise."
 (defun org-roam-gt-capture--enable ()
   "Enable the org-roam-gt capture extension."
   (advice-add 'org-roam-capture--setup-target-location
-              :before-until #'org-roam-gt-capture--dispatch))
+              :around #'org-roam-gt-capture--dispatch))
 
 (defun org-roam-gt-capture--disable ()
   "Disable the org-roam-gt capture extension."
