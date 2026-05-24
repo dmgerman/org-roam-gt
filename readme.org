@@ -2,9 +2,10 @@
 
 Org-roam is a powerful knowledge management system, but its defaults
 favour simplicity over scale.  As your node count grows into the thousands,
-~org-roam-node-find~ slows noticeably, the standard capture system cannot
-express common routing patterns without hand-written workarounds, and
-frequent operations like refile and capture lack keyboard-accessible shortcuts.
+~org-roam-node-find~ slows noticeably, the standard capture targets are limited to files and nodes — you cannot
+route a capture directly into a named heading or a computed destination such
+as today's daily note — and frequent operations like refile and capture have
+no built-in keyboard shortcuts.
 
 ~org-roam-gt~ addresses all three with a single minor mode:
 
