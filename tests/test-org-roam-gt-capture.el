@@ -170,20 +170,26 @@
 
 (describe "org-roam-gt-capture--enable and --disable"
 
-  (it "disables org-roam-capture-templates on enable"
-    (let ((org-roam-capture-templates '(("t" "Test" plain "body" :target (file "f.org"))))
-          org-roam-gt-capture--saved-templates)
-      (org-roam-gt-capture--enable)
-      (expect org-roam-capture-templates :to-be nil)
-      ;; Cleanup
-      (org-roam-gt-capture--disable)))
+  (it "installs dispatch advice on enable"
+    (org-roam-gt-capture--disable)   ; start clean
+    (org-roam-gt-capture--enable)
+    (expect (advice-member-p #'org-roam-gt-capture--dispatch
+                             'org-roam-capture--setup-target-location)
+            :to-be-truthy)
+    (org-roam-gt-capture--disable))
 
-  (it "restores org-roam-capture-templates on disable"
-    (let ((original '(("t" "Test" plain "body" :target (file "f.org"))))
-          (org-roam-capture-templates '(("t" "Test" plain "body" :target (file "f.org"))))
-          org-roam-gt-capture--saved-templates)
+  (it "removes dispatch advice on disable"
+    (org-roam-gt-capture--enable)
+    (org-roam-gt-capture--disable)
+    (expect (advice-member-p #'org-roam-gt-capture--dispatch
+                             'org-roam-capture--setup-target-location)
+            :to-be nil))
+
+  (it "does not touch org-roam-capture-templates"
+    (let ((org-roam-capture-templates '(("t" "Test" plain "body" :target (file "f.org")))))
       (org-roam-gt-capture--enable)
+      (expect org-roam-capture-templates :to-equal '(("t" "Test" plain "body" :target (file "f.org"))))
       (org-roam-gt-capture--disable)
-      (expect org-roam-capture-templates :to-equal original))))
+      (expect org-roam-capture-templates :to-equal '(("t" "Test" plain "body" :target (file "f.org")))))))
 
 ;;; test-org-roam-gt-capture.el ends here

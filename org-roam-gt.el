@@ -140,7 +140,7 @@ _r_: Refile node
 _x_: eXtract subtree
 _q_: Quit            
 "
-  ("c" (org-roam-gt-capture))
+  ("c" (org-roam-capture))
   ("r" (org-roam-refile))
   ("f" (org-roam-find-node))
   ("x" (org-roam-extract-subtree))

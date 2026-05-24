@@ -1,29 +1,105 @@
-This module provides a minor mode called org-roam-gt that
-provides two major improvements to org-roam:
+* org-roam-gt
 
-1. it improves significantly the speed of ~org-roam-node-find~
+A minor mode that extends org-roam with two independent features:
 
-2. The template passed to ~org-roam-node-find~ can be a function.
-  This improves its performance significantly. 
-    You can still pass a string, but I recommend you rewrite it as
-    a function. See org-roam-gt-default-format below which replaces
-    the default org-roam template
-    
-3. it adds a submenu to org-speed-commands (accessible via 'm')
+1. *Faster node display* — ~org-roam-node-find~ and related commands use a
+   function-based display template instead of a string, which is significantly
+   faster on large databases.
 
-How to use:
- 
- Simply enable the mode:
+2. *New capture target types* — four new ~:target~ forms for
+   ~org-roam-capture-templates~ that let you capture into computed nodes,
+   named headlines, and outline paths without patching org-roam.
 
- #+begin_src emacs-lisp   :exports both
-  (org-roam-gt-mode)
- #+end_src
+** Setup
 
- to disable, running the command again
+#+begin_src emacs-lisp
+(use-package org-roam-gt
+  :load-path "~/.emacs.d/modules/org-roam-gt"
+  :config
+  (org-roam-gt-mode 1))
+#+end_src
 
- #+begin_src    :exports both
-  (org-roam-gt-mode)
- #+end_src
+To disable, call ~(org-roam-gt-mode -1)~.  Templates are defined in the
+standard ~org-roam-capture-templates~ variable — nothing else changes.
 
+** New capture target types
 
+~org-roam-gt-mode~ teaches org-roam four new ~:target~ forms.  They work
+alongside all existing target types (~file~, ~file+head~, ~node~, etc.) with no
+configuration other than enabling the mode.
 
+*** =(nodefunc FUNCTION)=
+
+FUNCTION is called with no arguments and must return an ~org-roam-node~.
+Capture is positioned at the node's entry point.
+
+Use this when the destination node is computed at capture time — for
+example, today's daily note.
+
+#+begin_src emacs-lisp
+'("+" "Daily log" plain
+  "*** PROGRESS %?\n\n%a\n"
+  :target (nodefunc my-daily-node-function)
+  :unnarrowed t)
+#+end_src
+
+*** =(nodefunc+headline FUNCTION HEADLINE)=
+
+Like ~nodefunc~, but positions inside a named heading within the node.
+The heading is created as a child if it does not exist.
+
+#+begin_src emacs-lisp
+'("+" "Daily log" plain
+  "*** PROGRESS %?\n\n%a\n"
+  :target (nodefunc+headline my-daily-node-function "Log")
+  :unnarrowed t)
+#+end_src
+
+*** =(node+headline TITLE-OR-ID HEADLINE)=
+
+Looks up a node by its ID or title, then positions inside a named heading.
+The heading is created as a child if absent.
+
+If TITLE-OR-ID is ~nil~, the user is prompted to choose a node interactively.
+
+#+begin_src emacs-lisp
+;; Fixed destination node, fixed heading
+'("c" "Cooking recipe" entry
+  "** SOMEDAY %?\n\n%(dmg-web-org-link)\n\n"
+  :target (node+headline "area-cooking-20240921-012344" "Recipes")
+  :unnarrowed t)
+
+;; User picks the node, fixed heading
+'("T" "Todo" entry
+  "** TODO %?\n%T\n\n%i\n"
+  :target (node+headline nil "Actions")
+  :unnarrowed t)
+#+end_src
+
+*** =(node+olp TITLE-OR-ID "h1" "h2" ...)=
+
+Like ~node+headline~ but navigates (or creates) an arbitrary outline path.
+Each heading in the path is found or created in sequence.
+
+If TITLE-OR-ID is ~nil~, the user is prompted interactively.
+Heading strings may contain ~${var}~ template variables.
+
+#+begin_src emacs-lisp
+'("x" "Example" entry
+  "** %?\n"
+  :target (node+olp "my-node-id" "Section" "Subsection")
+  :unnarrowed t)
+#+end_src
+
+** Speed commands
+
+When ~org-roam-gt-enable-speed-commands~ is non-nil (the default), the key ~m~
+is added to ~org-speed-commands~.  It opens a hydra with shortcuts for common
+org-roam operations (capture, refile, find, extract subtree).
+
+** Node display template
+
+When ~org-roam-gt-enable-default-template-function~ is non-nil (the default),
+~org-roam-node-display-template~ is set to ~org-roam-gt-default-node-format~, a
+function-based template that is faster than the default string template for
+large databases.  The original value is restored when the mode is disabled.

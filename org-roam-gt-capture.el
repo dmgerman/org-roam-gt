@@ -36,9 +36,9 @@
 ;;   (node+olp TITLE-OR-ID "h1" "h2" ...)
 ;;     Look up node by title or ID; navigate/create the outline path.
 ;;
-;; Activated via `org-roam-gt-capture-mode' (or through `org-roam-gt-mode').
-;; When active the old `org-roam-capture-templates' is disabled and
-;; `org-roam-capture' is redirected to `org-roam-gt-capture'.
+;; Activated via `org-roam-gt-mode'.  Templates continue to live in
+;; `org-roam-capture-templates' exactly as before; this library only adds
+;; the ability to handle the four new target types listed above.
 
 ;;; Code:
 
@@ -46,15 +46,6 @@
 (require 'org)
 (require 'org-roam)
 (require 'org-capture)
-
-;;; Template variable
-
-(defcustom org-roam-gt-capture-templates nil
-  "Capture templates for `org-roam-gt-capture'.
-Same structure as `org-roam-capture-templates', with the addition of
-the target types: nodefunc, nodefunc+headline, node+headline, node+olp."
-  :type '(repeat sexp)
-  :group 'org-roam)
 
 ;;; Heading helpers
 
@@ -257,34 +248,15 @@ Returns an org ID string if the target type is handled, nil otherwise."
               (org-id-get)
             (run-hooks 'org-roam-capture-new-node-hook)))))))
 
-;;; Entry command
-
-(defun org-roam-gt-capture (&optional goto keys)
-  "Run org-roam capture using `org-roam-gt-capture-templates'.
-GOTO and KEYS are passed through to `org-roam-capture-'."
-  (interactive "P")
-  (unless org-roam-gt-capture-templates
-    (user-error "org-roam-gt-capture: no templates defined in `org-roam-gt-capture-templates'"))
-  (org-roam-capture- :goto goto :keys keys
-                     :templates org-roam-gt-capture-templates))
-
 ;;; Mode enable / disable
-
-(defvar org-roam-gt-capture--saved-templates nil
-  "Saved value of `org-roam-capture-templates' before mode activation.")
 
 (defun org-roam-gt-capture--enable ()
   "Enable the org-roam-gt capture extension."
-  (setq org-roam-gt-capture--saved-templates org-roam-capture-templates)
-  (setq org-roam-capture-templates nil)
-  (advice-add 'org-roam-capture :override #'org-roam-gt-capture)
   (advice-add 'org-roam-capture--setup-target-location
               :before-until #'org-roam-gt-capture--dispatch))
 
 (defun org-roam-gt-capture--disable ()
   "Disable the org-roam-gt capture extension."
-  (setq org-roam-capture-templates org-roam-gt-capture--saved-templates)
-  (advice-remove 'org-roam-capture #'org-roam-gt-capture)
   (advice-remove 'org-roam-capture--setup-target-location
                  #'org-roam-gt-capture--dispatch))
 
