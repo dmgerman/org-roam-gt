@@ -1,14 +1,27 @@
 * org-roam-gt
 
-A minor mode that extends org-roam with two independent features:
+Org-roam is a powerful knowledge management system, but its defaults
+favour simplicity over scale.  As your node count grows into the thousands,
+~org-roam-node-find~ slows noticeably, the standard capture system cannot
+express common routing patterns without hand-written workarounds, and
+frequent operations like refile and capture lack keyboard-accessible shortcuts.
 
-1. *Faster node display* — ~org-roam-node-find~ and related commands use a
-   function-based display template instead of a string, which is significantly
-   faster on large databases.
+~org-roam-gt~ addresses all three with a single minor mode:
 
-2. *New capture target types* — four new ~:target~ forms for
-   ~org-roam-capture-templates~ that let you capture into computed nodes,
-   named headlines, and outline paths without patching org-roam.
+1. *Faster node display* — replaces the string-based display template with a
+   function, which is significantly faster on large databases and lets you
+   control formatting in Lisp rather than a custom mini-language.
+
+2. *Richer capture targets* — four new ~:target~ forms for
+   ~org-roam-capture-templates~ that let you route captures to computed nodes,
+   named headings, and arbitrary outline paths.  These cover the patterns that
+   come up constantly in a structured PKM workflow: "today's daily note, under
+   the Log section", "a specific project node, under Actions", "a fixed
+   reference file, two levels deep".
+
+3. *Speed command menu* — a hydra bound to ~m~ in ~org-speed-commands~,
+   giving one-keystroke access to capture, refile, find, and extract-subtree
+   from any org heading.
 
 ** Setup
 
@@ -19,14 +32,14 @@ A minor mode that extends org-roam with two independent features:
   (org-roam-gt-mode 1))
 #+end_src
 
-To disable, call ~(org-roam-gt-mode -1)~.  Templates are defined in the
-standard ~org-roam-capture-templates~ variable — nothing else changes.
+To disable, call ~(org-roam-gt-mode -1)~.  All three features are controlled
+by the mode and restore their previous state on disable.
 
 ** New capture target types
 
-~org-roam-gt-mode~ teaches org-roam four new ~:target~ forms.  They work
-alongside all existing target types (~file~, ~file+head~, ~node~, etc.) with no
-configuration other than enabling the mode.
+Four new ~:target~ forms are available in ~org-roam-capture-templates~ once
+the mode is active.  They work alongside all existing types (~file~,
+~file+head~, ~node~, etc.) with no other configuration.
 
 *** =(nodefunc FUNCTION)=
 
@@ -65,7 +78,7 @@ If TITLE-OR-ID is ~nil~, the user is prompted to choose a node interactively.
 #+begin_src emacs-lisp
 ;; Fixed destination node, fixed heading
 '("c" "Cooking recipe" entry
-  "** SOMEDAY %?\n\n%(dmg-web-org-link)\n\n"
+  "** SOMEDAY %?\n\n%(my-web-link)\n\n"
   :target (node+headline "area-cooking-20240921-012344" "Recipes")
   :unnarrowed t)
 
@@ -95,11 +108,22 @@ Heading strings may contain ~${var}~ template variables.
 
 When ~org-roam-gt-enable-speed-commands~ is non-nil (the default), the key ~m~
 is added to ~org-speed-commands~.  It opens a hydra with shortcuts for common
-org-roam operations (capture, refile, find, extract subtree).
+org-roam operations:
+
+| Key | Action |
+|-----+--------|
+| ~c~ | Capture (~org-roam-capture~) |
+| ~f~ | Find node (~org-roam-node-find~) |
+| ~r~ | Refile to a node |
+| ~x~ | Extract subtree |
+
+Speed commands are available when point is at the beginning of a heading.
 
 ** Node display template
 
 When ~org-roam-gt-enable-default-template-function~ is non-nil (the default),
 ~org-roam-node-display-template~ is set to ~org-roam-gt-default-node-format~, a
-function-based template that is faster than the default string template for
-large databases.  The original value is restored when the mode is disabled.
+function rather than a string.  On large databases this is measurably faster
+because Emacs evaluates the function once per candidate rather than
+interpolating a format string with repeated property lookups.  The original
+value is restored when the mode is disabled.
