@@ -130,12 +130,12 @@
     ;; Simulate a node target — our dispatch should not handle it
     (cl-letf (((symbol-function 'org-roam-capture--get-target)
                (lambda () '(node "some-id"))))
-      (expect (org-roam-gt-capture--dispatch) :to-be nil)))
+      (expect (org-roam-gt-capture--dispatch #'ignore) :to-be nil)))
 
   (it "returns nil for file target types"
     (cl-letf (((symbol-function 'org-roam-capture--get-target)
                (lambda () '(file "path/to/file.org"))))
-      (expect (org-roam-gt-capture--dispatch) :to-be nil)))
+      (expect (org-roam-gt-capture--dispatch #'ignore) :to-be nil)))
 
   (it "handles nodefunc target type (non-nil return)"
     ;; We just verify dispatch doesn't return nil for our types.
@@ -164,7 +164,7 @@
           (insert "* Test\n")
           (goto-char (point-min))
           (let ((org-roam-capture--node (org-roam-node-create :id "test-id")))
-            (expect (org-roam-gt-capture--dispatch) :not :to-be nil))))))  )
+            (expect (org-roam-gt-capture--dispatch #'ignore) :not :to-be nil))))))  )
 
 ;;; Tests for mode enable/disable
 

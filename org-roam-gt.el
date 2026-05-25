@@ -39,7 +39,6 @@
 
 ;;; Code:
 
-(require 'hydra)
 (require 'org-roam)
 (require 'org-roam-gt-capture)
 
@@ -76,12 +75,15 @@
             )
         (error message)))))
 
-(defcustom org-roam-gt-enable-speed-commands t
-  "When non-nil, add a hydra to org-speed-commands under the key `m'.
-Set before enabling `org-roam-gt-mode', or disable and re-enable the mode
-after changing."
-  :type 'boolean
-  :group 'org-roam-gt)
+(defvar org-roam-gt-enable-hook nil
+  "Hook run when `org-roam-gt-mode' is enabled.
+Use this to register extensions that activate with the mode.
+Each function is called with no arguments.")
+
+(defvar org-roam-gt-disable-hook nil
+  "Hook run when `org-roam-gt-mode' is disabled.
+Use this to register cleanup for extensions that activated via
+`org-roam-gt-enable-hook'.  Each function is called with no arguments.")
 
 (defcustom org-roam-gt-enable-node-display-function t
   "When non-nil, replace `org-roam-node-display-template' with a Lisp function.
@@ -100,7 +102,7 @@ after changing."
   :type 'boolean
   :group 'org-roam-gt)
 
-;; support functions
+;;; support functions
 
 (defun org-roam-gt--to-string (st)
   "Make sure we have ST is a string. if it is a list, concatenate it."
@@ -158,44 +160,12 @@ This function is equivalent to the following template
    " "
    (string-join (org-roam-node-olp node) " > ")))
 
-;; speed commands, use hydra for hierarchical commands
-(defhydra org-roam-gt-hydra (:hint nil :exit t)
-  "
-Org roam commands:
-_c_: org-roam Capture
-_f_: org-roam-refile
-_r_: Refile node
-_x_: eXtract subtree
-_q_: Quit            
-"
-  ("c" (org-roam-capture))
-  ("r" (org-roam-refile))
-  ("f" (org-roam-find-node))
-  ("x" (org-roam-extract-subtree))
-  ("q" nil))
-
-
-(defvar org-roam-gt-speed-commands-save org-speed-commands
-  "save the original speed commands so we can restore them if needed")
+;; speed commands are defined in org-roam-gt-hydra.el.
+; Load that file and it will register itself on org-roam-gt-enable-hook
+; and org-roam-gt-disable-hook automatically.
 
 (defvar org-roam-gt-node-template-save org-roam-node-display-template
   "save the original org-roam-node-display-template so we can restore them if needed")
-
-(defun org-roam-gt-set-org-speed-commands ()
-  "Update speed commands with org-roam-gt hydra."
-  (setq org-roam-gt-speed-commands-save org-speed-commands)
-  (when org-roam-gt-enable-speed-commands
-    (setq org-speed-commands (append org-speed-commands
-                                     (list (list "org-roam-gt commands")
-                                           (cons "m" 'org-roam-gt-hydra/body)
-                                           )))
-    (setq org-use-speed-commands t))
-  )
-
-(defun org-roam-gt-reset-org-speed-commands ()
-  "Restore org-speed-commands to their saved state."
-  (when org-roam-gt-enable-speed-commands
-    (setq org-speed-commands org-roam-gt-speed-commands-save)))
 
 (defun org-roam-gt-set-node-template ()
   "Replace the node display template with a Lisp function if enabled."
@@ -212,7 +182,7 @@ _q_: Quit
 
 (defun org-roam-gt-mode-enable ()
   "Callback when org-roam-gt-mode is enabled."
-  (org-roam-gt-set-org-speed-commands)
+  (run-hooks 'org-roam-gt-enable-hook)
   (org-roam-gt-set-node-template)
   (when org-roam-gt-enable-capture-targets
     (org-roam-gt-capture--enable)))
@@ -220,7 +190,7 @@ _q_: Quit
 (defun org-roam-gt-mode-disable ()
   "Callback when org-roam-gt-mode is disabled."
   (message "disabling org-roam-gt mode")
-  (org-roam-gt-reset-org-speed-commands)
+  (run-hooks 'org-roam-gt-disable-hook)
   (org-roam-gt-reset-node-template)
   (when org-roam-gt-enable-capture-targets
     (org-roam-gt-capture--disable)))

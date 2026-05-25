@@ -30,10 +30,12 @@ no built-in keyboard shortcuts.
 (use-package org-roam-gt
   :load-path "~/.emacs.d/modules/org-roam-gt"
   :config
+  ;; Optional: load the speed-command hydra (requires the 'hydra' package)
+  (require 'org-roam-gt-hydra)
   (org-roam-gt-mode 1))
 #+end_src
 
-To disable, call ~(org-roam-gt-mode -1)~.  All three features are controlled
+To disable, call ~(org-roam-gt-mode -1)~.  All features are controlled
 by the mode and restore their previous state on disable.
 
 ** Selectively disabling features
@@ -44,9 +46,6 @@ independently before enabling the mode:
 #+begin_src emacs-lisp
 ;; Disable the faster node display function (keep org-roam's default template)
 (setq org-roam-gt-enable-node-display-function nil)
-
-;; Disable the speed command menu (do not add 'm' to org-speed-commands)
-(setq org-roam-gt-enable-speed-commands nil)
 
 ;; Disable the extended capture targets
 (setq org-roam-gt-enable-capture-targets nil)
@@ -59,8 +58,51 @@ re-enable:
 
 #+begin_src emacs-lisp
 (org-roam-gt-mode -1)
-(setq org-roam-gt-enable-speed-commands nil)
+(setq org-roam-gt-enable-node-display-function nil)
 (org-roam-gt-mode 1)
+#+end_src
+
+*** Speed command hydra (opt-in)
+
+The speed command hydra is self-contained in ~org-roam-gt-hydra.el~.  It uses
+~org-roam-gt-enable-hook~ and ~org-roam-gt-disable-hook~ to register and
+de-register itself with the mode.
+
+To enable the hydra, require it /before/ enabling the mode:
+
+#+begin_src emacs-lisp
+(require 'org-roam-gt-hydra)   ; registers hydra on the hooks
+(org-roam-gt-mode 1)           ; fires org-roam-gt-enable-hook, installs hydra
+#+end_src
+
+To disable the hydra entirely, simply do not load ~org-roam-gt-hydra.el~.
+Neither the hydra key (~m~) nor the ~hydra~ package itself will be loaded.
+
+If you want to remove the hydra after the mode is already running:
+
+#+begin_src emacs-lisp
+(remove-hook 'org-roam-gt-enable-hook  #'org-roam-gt-hydra--enable)
+(remove-hook 'org-roam-gt-disable-hook #'org-roam-gt-hydra--disable)
+(org-roam-gt-hydra--disable)   ; clean up the current session
+#+end_src
+
+*** Hook-based extension API
+
+~org-roam-gt-mode~ exposes two hooks for extensions that want to activate and
+deactivate together with the mode:
+
+| Hook                      | Fired when                          |
+|---------------------------+-------------------------------------|
+| ~org-roam-gt-enable-hook~   | Mode is being enabled (~:global t~)   |
+| ~org-roam-gt-disable-hook~  | Mode is being disabled              |
+
+Add your own functions to register custom behaviour:
+
+#+begin_src emacs-lisp
+(defun my-roam-ext--enable () ...)
+(defun my-roam-ext--disable () ...)
+(add-hook 'org-roam-gt-enable-hook  #'my-roam-ext--enable)
+(add-hook 'org-roam-gt-disable-hook #'my-roam-ext--disable)
 #+end_src
 
 ** New capture target types
