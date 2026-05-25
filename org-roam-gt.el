@@ -57,18 +57,24 @@
        (org-roam-version0 (if (string-prefix-p "v" raw-version)
                               (substring raw-version 1)
                             raw-version))
-       (org-roam-version  (if (and (stringp org-roam-version0)
+       (org-roam-version  (when (and (stringp org-roam-version0)
                                    (string-match "-" org-roam-version0))
                               (substring org-roam-version0 0 (match-beginning 0))
-                            org-roam-version0))
+                            ))
        (min-version "2.2.2")
        )
-  (unless (version<= min-version org-roam-version)
-    (let (
-          (message (format "org-roam version %s or later required, but %s is loaded"
-                           min-version org-roam-version))
-          )
-     (error message))))
+  ;; org-roam returns the commit id if user is running org-roam from git
+  ;; assume the user knows what is going once
+  ;; if we can't convert it, it is not a "proper version"
+  (message "org-roam-gt: Org roam version [%s]... continuing" raw-version)
+  (if (not org-roam-version)
+      (message "Org-roam version returns [%s] which is not a proper version" raw-version)
+    (unless (version<= min-version org-roam-version)
+      (let (
+            (message (format "org-roam version %s or later required, but %s is loaded"
+                             min-version org-roam-version))
+            )
+        (error message)))))
 
 (defcustom org-roam-gt-enable-speed-commands t
   "When non-nil, add a hydra to org-speed-commands under the key `m'.
