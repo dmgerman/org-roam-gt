@@ -18,6 +18,7 @@ It does **not** patch org-roam source files.
 
 ## Rules
 
+- **Never commit or push** — commits and pushes are made by the user explicitly, when they ask for it.
 - **Never edit `.el` files directly** if a `.org` source file exists for them.
   This repo's `.el` files are standalone (no tangling), so editing `.el` is fine.
 - **Never commit** — commits are made by the user explicitly.
