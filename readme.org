@@ -36,6 +36,33 @@ no built-in keyboard shortcuts.
 To disable, call ~(org-roam-gt-mode -1)~.  All three features are controlled
 by the mode and restore their previous state on disable.
 
+** Selectively disabling features
+
+All three features are enabled by default.  Each can be turned off
+independently before enabling the mode:
+
+#+begin_src emacs-lisp
+;; Disable the faster node display function (keep org-roam's default template)
+(setq org-roam-gt-enable-node-display-function nil)
+
+;; Disable the speed command menu (do not add 'm' to org-speed-commands)
+(setq org-roam-gt-enable-speed-commands nil)
+
+;; Disable the extended capture targets
+(setq org-roam-gt-enable-capture-targets nil)
+
+(org-roam-gt-mode 1)
+#+end_src
+
+If the mode is already running, disable it, change the variable, then
+re-enable:
+
+#+begin_src emacs-lisp
+(org-roam-gt-mode -1)
+(setq org-roam-gt-enable-speed-commands nil)
+(org-roam-gt-mode 1)
+#+end_src
+
 ** New capture target types
 
 The four new target types work alongside all existing ones.  Your current

@@ -43,6 +43,10 @@
 (require 'org-roam)
 (require 'org-roam-gt-capture)
 
+(defgroup org-roam-gt nil
+  "Improvements for org-roam: faster search, richer capture targets, speed commands."
+  :group 'org-roam)
+
 ;;; Code;
 
 ;; verify version
@@ -66,11 +70,29 @@
           )
      (error message))))
 
-(defvar org-roam-gt-enable-speed-commands t
-  "If true, add a hydra to org speed commands (using the key m)" )
+(defcustom org-roam-gt-enable-speed-commands t
+  "When non-nil, add a hydra to org-speed-commands under the key `m'.
+Set before enabling `org-roam-gt-mode', or disable and re-enable the mode
+after changing."
+  :type 'boolean
+  :group 'org-roam-gt)
 
-(defvar org-roam-gt-enable-default-template-function t
-  "If true, replace org-roam-node-display-template with org-roam-gt-default-node-format" )
+(defcustom org-roam-gt-enable-node-display-function t
+  "When non-nil, replace `org-roam-node-display-template' with a Lisp function.
+This speeds up `org-roam-node-find' on large databases.
+Set before enabling `org-roam-gt-mode', or disable and re-enable the mode
+after changing."
+  :type 'boolean
+  :group 'org-roam-gt)
+
+(defcustom org-roam-gt-enable-capture-targets t
+  "When non-nil, install advice that adds new capture target types.
+The new types are: `nodefunc', `nodefunc+headline', `node+headline',
+and `node+olp'.  See the readme for details.
+Set before enabling `org-roam-gt-mode', or disable and re-enable the mode
+after changing."
+  :type 'boolean
+  :group 'org-roam-gt)
 
 ;; support functions
 
@@ -154,7 +176,7 @@ _q_: Quit
   "save the original org-roam-node-display-template so we can restore them if needed")
 
 (defun org-roam-gt-set-org-speed-commands ()
-  "update speed commands with our own."
+  "Update speed commands with org-roam-gt hydra."
   (setq org-roam-gt-speed-commands-save org-speed-commands)
   (when org-roam-gt-enable-speed-commands
     (setq org-speed-commands (append org-speed-commands
@@ -165,35 +187,37 @@ _q_: Quit
   )
 
 (defun org-roam-gt-reset-org-speed-commands ()
-  "remove org-speed commands."
+  "Restore org-speed-commands to their saved state."
   (when org-roam-gt-enable-speed-commands
-    (setq org-speed-commands org-roam-gt-speed-commands-save )))
+    (setq org-speed-commands org-roam-gt-speed-commands-save)))
 
 (defun org-roam-gt-set-node-template ()
-  "Save current template. set the node template to the default one if required."
+  "Replace the node display template with a Lisp function if enabled."
   (setq org-roam-gt-node-template-save org-roam-node-display-template)
-  (when org-roam-gt-enable-default-template-function
+  (when org-roam-gt-enable-node-display-function
     (setq org-roam-node-display-template 'org-roam-gt-default-node-format)))
 
 (defun org-roam-gt-reset-node-template ()
-  "remove org-roam-node-display-template function."
-  (when org-roam-gt-enable-speed-commands
-    (setq org-speed-commands org-roam-gt-speed-commands-save )))
+  "Restore the node display template to its saved state."
+  (when org-roam-gt-enable-node-display-function
+    (setq org-roam-node-display-template org-roam-gt-node-template-save)))
 
 ;; define a minor mode to enable/disable the changes
 
 (defun org-roam-gt-mode-enable ()
-  "Callback when org-roam-mode is enabled."
+  "Callback when org-roam-gt-mode is enabled."
   (org-roam-gt-set-org-speed-commands)
   (org-roam-gt-set-node-template)
-  (org-roam-gt-capture--enable))
+  (when org-roam-gt-enable-capture-targets
+    (org-roam-gt-capture--enable)))
 
 (defun org-roam-gt-mode-disable ()
-  "Callback when org-roam-mode is disabled."
+  "Callback when org-roam-gt-mode is disabled."
   (message "disabling org-roam-gt mode")
   (org-roam-gt-reset-org-speed-commands)
   (org-roam-gt-reset-node-template)
-  (org-roam-gt-capture--disable))
+  (when org-roam-gt-enable-capture-targets
+    (org-roam-gt-capture--disable)))
 
 (define-minor-mode org-roam-gt-mode
   "Minor mode that enables improvements in speed in org-roam.
