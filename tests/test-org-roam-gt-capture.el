@@ -192,4 +192,134 @@
       (org-roam-gt-capture--disable)
       (expect org-roam-capture-templates :to-equal '(("t" "Test" plain "body" :target (file "f.org")))))))
 
+;;; End-to-end capture positioning
+;;
+;; The sentinel string "SENTINEL-<n>" marks the inserted text; the assertion
+;; navigates from the sentinel back to its enclosing heading and checks the
+;; title.  These tests guard against a double-advance bug where the combination
+;; of `org-roam-capture--adjust-point-for-capture-type' and
+;; `org-capture-place-plain-text' pushed insertion past the target heading and
+;; into a sibling subtree.
+
+(describe "plain template + node+headline"
+
+  (it "inserts into the target heading, not the next sibling"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: test-id\n:END:\n#+title: T\n\n* Incoming\n\nprelude\n\n* Actions\n\nexisting\n"
+      (org-roam-gt-test--run-capture
+       '("t" "test" plain "- SENTINEL-1"
+         :target (node+headline "test-id" "Incoming")
+         :immediate-finish t :unnarrowed t)
+       (org-roam-gt-test--file-level-node "test-id" fixture-file))
+      (expect (org-roam-gt-test--parent-heading-of fixture-file "SENTINEL-1")
+              :to-equal "Incoming")))
+
+  (it "inserts into the last heading in the file"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: test-id\n:END:\n#+title: T\n\n* First\n\n* Last\n\ntail\n"
+      (org-roam-gt-test--run-capture
+       '("t" "test" plain "- SENTINEL-2"
+         :target (node+headline "test-id" "Last")
+         :immediate-finish t :unnarrowed t)
+       (org-roam-gt-test--file-level-node "test-id" fixture-file))
+      (expect (org-roam-gt-test--parent-heading-of fixture-file "SENTINEL-2")
+              :to-equal "Last")))
+
+  (it "inserts into the target heading even when it has child sub-headings"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: test-id\n:END:\n#+title: T\n\n* Parent\n\nparent body\n\n** Child\n\nchild body\n\n* Sibling\n"
+      (org-roam-gt-test--run-capture
+       '("t" "test" plain "- SENTINEL-3"
+         :target (node+headline "test-id" "Parent")
+         :immediate-finish t :unnarrowed t)
+       (org-roam-gt-test--file-level-node "test-id" fixture-file))
+      (expect (org-roam-gt-test--parent-heading-of fixture-file "SENTINEL-3")
+              :to-equal "Parent"))))
+
+(describe "entry template + node+headline (regression guard)"
+
+  (it "creates a child entry under the target heading"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: test-id\n:END:\n#+title: T\n\n* Incoming\n\nprelude\n\n* Actions\n\nexisting\n"
+      (org-roam-gt-test--run-capture
+       '("t" "test" entry "* SENTINEL-4-entry\nbody"
+         :target (node+headline "test-id" "Incoming")
+         :immediate-finish t :unnarrowed t)
+       (org-roam-gt-test--file-level-node "test-id" fixture-file))
+      (with-current-buffer (find-file-noselect fixture-file)
+        (save-excursion
+          (goto-char (point-min))
+          (search-forward "SENTINEL-4-entry")
+          (org-back-to-heading t)
+          (expect (org-get-heading t t t t) :to-equal "SENTINEL-4-entry")
+          (org-up-heading-safe)
+          (expect (org-get-heading t t t t) :to-equal "Incoming"))))))
+
+(describe "plain template + nodefunc+headline"
+
+  (it "inserts into the target heading of the node returned by the function"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: fn-id\n:END:\n#+title: T\n\n* Log\n\nprelude\n\n* Other\n\nexisting\n"
+      (let* ((node (org-roam-gt-test--file-level-node "fn-id" fixture-file))
+             (template `("t" "test" plain "- SENTINEL-5"
+                         :target (nodefunc+headline ,(lambda () node) "Log")
+                         :immediate-finish t :unnarrowed t)))
+        (org-roam-gt-test--run-capture template node)
+        (expect (org-roam-gt-test--parent-heading-of fixture-file "SENTINEL-5")
+                :to-equal "Log")))))
+
+(describe "plain template + node+olp"
+
+  (it "inserts into the leaf heading of an existing outline path"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: test-id\n:END:\n#+title: T\n\n* Top\n\n** Middle\n\n*** Leaf\n\nprelude\n\n* Sibling\n"
+      (org-roam-gt-test--run-capture
+       '("t" "test" plain "- SENTINEL-6"
+         :target (node+olp "test-id" "Top" "Middle" "Leaf")
+         :immediate-finish t :unnarrowed t)
+       (org-roam-gt-test--file-level-node "test-id" fixture-file))
+      (expect (org-roam-gt-test--parent-heading-of fixture-file "SENTINEL-6")
+              :to-equal "Leaf")))
+
+  (it "creates missing OLP headings and inserts into the leaf"
+    ;; The Sibling heading after Top ensures the newly-created leaf is not the
+    ;; last heading in the file, so the bug's double-advance would land the
+    ;; sentinel in Sibling instead of NewLeaf.
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: test-id\n:END:\n#+title: T\n\n* Top\n\n* Sibling\n\ntail\n"
+      (org-roam-gt-test--run-capture
+       '("t" "test" plain "- SENTINEL-7"
+         :target (node+olp "test-id" "Top" "NewMid" "NewLeaf")
+         :immediate-finish t :unnarrowed t)
+       (org-roam-gt-test--file-level-node "test-id" fixture-file))
+      (expect (org-roam-gt-test--parent-heading-of fixture-file "SENTINEL-7")
+              :to-equal "NewLeaf"))))
+
+(describe "plain template + node+olp+datetree"
+
+  (it "inserts into the datetree day heading beneath the node"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: test-id\n:END:\n#+title: T\n\n* Journal\n\n* Sibling\n\ntail\n"
+      ;; Fix the date so the datetree structure is deterministic
+      (let ((org-overriding-default-time (encode-time 0 0 12 15 1 2025)))
+        (org-roam-gt-test--run-capture
+         '("t" "test" plain "- SENTINEL-8"
+           :target (node+olp+datetree "test-id" "Journal")
+           :immediate-finish t :unnarrowed t)
+         (org-roam-gt-test--file-level-node "test-id" fixture-file)))
+      ;; The datetree creates YYYY / YYYY-MM month / YYYY-MM-DD day headings.
+      ;; Sentinel should land under the day heading, which should nest inside
+      ;; the Journal subtree — not inside Sibling.
+      (with-current-buffer (find-file-noselect fixture-file)
+        (save-excursion
+          (goto-char (point-min))
+          (search-forward "SENTINEL-8")
+          (org-back-to-heading t)
+          ;; Day heading is a leaf that starts with 2025-01-15
+          (expect (org-get-heading t t t t) :to-match "\\`2025-01-15")
+          ;; Walk up to top-level and verify it's the Journal subtree
+          (while (> (org-outline-level) 1)
+            (org-up-heading-safe))
+          (expect (org-get-heading t t t t) :to-equal "Journal"))))))
+
 ;;; test-org-roam-gt-capture.el ends here

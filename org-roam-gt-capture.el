@@ -36,14 +36,25 @@
 ;;   (node+olp TITLE-OR-ID "h1" "h2" ...)
 ;;     Look up node by title or ID; navigate/create the outline path.
 ;;
+;;   (node+olp+datetree TITLE-OR-ID "h1" "h2" ...)
+;;     Look up node by title or ID; navigate/create the outline path (optional);
+;;     then build a datetree under that position.  Respects the standard
+;;     org-capture template properties :tree-type and :time-prompt.
+;;
+;;   (nodefunc+olp+datetree FUNCTION "h1" "h2" ...)
+;;     FUNCTION returns an org-roam-node; navigate/create the outline path
+;;     (optional); then build a datetree under that position.  Respects
+;;     :tree-type and :time-prompt.
+;;
 ;; Activated via `org-roam-gt-mode'.  Templates continue to live in
 ;; `org-roam-capture-templates' exactly as before; this library only adds
-;; the ability to handle the four new target types listed above.
+;; the ability to handle the six new target types listed above.
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'org)
+(require 'org-datetree)
 (require 'org-roam)
 (require 'org-capture)
 
@@ -127,6 +138,55 @@ which are expanded via `org-roam-capture--fill-template'."
        (setq start found
              end (save-excursion (org-end-of-subtree t t))))
      (point-marker))))
+
+;;; Datetree helper
+
+(defun org-roam-gt-capture--datetree-at-point ()
+  "Build a datetree at the current position.
+Delegates entirely to org's datetree machinery, honouring the standard
+org-capture template properties :tree-type and :time-prompt, exactly as
+`org-capture' does for `file+olp+datetree'.
+
+Passes `subtree-at-point' to the datetree function when point is at a
+heading (heading-level node or OLP endpoint), so the tree is scoped to
+that subtree.  Passes nil when not at a heading (file-level node with no
+OLP), so the datetree is built at file scope — matching org behaviour."
+  (let ((keep-restriction (when (org-at-heading-p) 'subtree-at-point)))
+    (funcall
+     (pcase (org-capture-get :tree-type)
+       (`week  #'org-datetree-find-iso-week-create)
+       (`month #'org-datetree-find-month-create)
+       (`day   #'org-datetree-find-date-create)
+       ((pred not) #'org-datetree-find-date-create)
+       ;; NOTE: functionp must precede listp — lambda forms satisfy both predicates
+       ((and (pred functionp) fun)
+        (lambda (d keep)
+          (org-datetree-find-create-hierarchy (funcall fun d) keep)))
+       ((and (pred listp) grouping)
+        (lambda (d keep)
+          (org-datetree-find-create-entry grouping d keep)))
+       (_ (error "org-roam-gt-capture: unrecognized :tree-type %S"
+                 (org-capture-get :tree-type))))
+     (calendar-gregorian-from-absolute
+      (cond
+       (org-overriding-default-time
+        (time-to-days org-overriding-default-time))
+       ((or (org-capture-get :time-prompt)
+            (equal current-prefix-arg 1))
+        (let* ((org-time-was-given nil)
+               (org-end-time-was-given nil)
+               (prompt-time (org-read-date nil t nil "Date for tree entry:")))
+          (org-capture-put
+           :default-time
+           (if (or org-time-was-given
+                   (= (time-to-days prompt-time) (org-today)))
+               prompt-time
+             (org-encode-time
+              (apply #'list 0 0 org-extend-today-until
+                     (cdddr (decode-time prompt-time))))))
+          (time-to-days prompt-time)))
+       (t (org-today))))
+     keep-restriction)))
 
 ;;; Node lookup
 
@@ -220,10 +280,47 @@ Returns point at the final heading."
       (goto-char (org-roam-gt-capture-find-or-create-olp olp))
       (point))))
 
+(defun org-roam-gt-capture--setup-node+olp+datetree (target-spec)
+  "Position buffer at a datetree entry within the node identified in TARGET-SPEC.
+Optional OLP headings between the node and the datetree are navigated/created.
+Returns point at the datetree entry."
+  (let ((title-or-id (nth 1 target-spec))
+        (olp         (cddr target-spec)))
+    (let ((node (org-roam-gt-capture--find-node title-or-id)))
+      (org-roam-gt-capture--validate-node node "node+olp+datetree")
+      (setq org-roam-capture--node node)
+      (set-buffer (org-capture-target-buffer (org-roam-node-file node)))
+      (widen)
+      (goto-char (org-roam-node-point node))
+      (when olp
+        (goto-char (org-roam-gt-capture-find-or-create-olp olp)))
+      (org-roam-gt-capture--datetree-at-point)
+      (point))))
+
+(defun org-roam-gt-capture--setup-nodefunc+olp+datetree (target-spec)
+  "Position buffer at a datetree entry within the node returned by function in TARGET-SPEC.
+Optional OLP headings between the node and the datetree are navigated/created.
+Returns point at the datetree entry."
+  (let ((fn  (nth 1 target-spec))
+        (olp (cddr target-spec)))
+    (unless (functionp fn)
+      (user-error "org-roam-gt-capture: nodefunc+olp+datetree target requires a function, got: %S" fn))
+    (let ((node (funcall fn)))
+      (org-roam-gt-capture--validate-node node "nodefunc+olp+datetree")
+      (setq org-roam-capture--node node)
+      (set-buffer (org-capture-target-buffer (org-roam-node-file node)))
+      (widen)
+      (goto-char (org-roam-node-point node))
+      (when olp
+        (goto-char (org-roam-gt-capture-find-or-create-olp olp)))
+      (org-roam-gt-capture--datetree-at-point)
+      (point))))
+
 ;;; Advice dispatch
 
 (defvar org-roam-gt-capture--node-target-types
-  '(nodefunc nodefunc+headline node+headline node+olp)
+  '(nodefunc nodefunc+headline node+headline node+olp
+    node+olp+datetree nodefunc+olp+datetree)
   "Target type symbols handled by org-roam-gt-capture.")
 
 (defun org-roam-gt-capture--dispatch (orig-fn)
@@ -235,10 +332,12 @@ Handles new target types; calls ORIG-FN for standard types."
         (funcall orig-fn)
       (let* ((position
               (pcase target-type
-                ('nodefunc          (org-roam-gt-capture--setup-nodefunc target-spec))
-                ('nodefunc+headline (org-roam-gt-capture--setup-nodefunc+headline target-spec))
-                ('node+headline     (org-roam-gt-capture--setup-node+headline target-spec))
-                ('node+olp          (org-roam-gt-capture--setup-node+olp target-spec))))
+                ('nodefunc                (org-roam-gt-capture--setup-nodefunc target-spec))
+                ('nodefunc+headline       (org-roam-gt-capture--setup-nodefunc+headline target-spec))
+                ('node+headline           (org-roam-gt-capture--setup-node+headline target-spec))
+                ('node+olp                (org-roam-gt-capture--setup-node+olp target-spec))
+                ('node+olp+datetree       (org-roam-gt-capture--setup-node+olp+datetree target-spec))
+                ('nodefunc+olp+datetree   (org-roam-gt-capture--setup-nodefunc+olp+datetree target-spec))))
              (inherit-id (not (eq target-type 'nodefunc))))
         (save-excursion
           (unless position

@@ -127,13 +127,15 @@ fixed destination or a computed one.  The new target types address this:
 
 *New target types added by ~org-roam-gt-mode~*:
 
-| Target type       | Destination node          | Position within node              |
-|-------------------+---------------------------+-----------------------------------|
-| ~node~              | Fixed ID/title, or prompt | Node entry point                  |
-| ~nodefunc~          | Returned by a function    | Node entry point                  |
-| ~nodefunc+headline~ | Returned by a function    | Named heading (created if absent) |
-| ~node+headline~     | Fixed ID/title, or prompt | Named heading (created if absent) |
-| ~node+olp~          | Fixed ID/title, or prompt | Outline path (created if absent)  |
+| Target type              | Destination node          | Position within node              |
+|--------------------------+---------------------------+-----------------------------------|
+| ~node~                     | Fixed ID/title, or prompt | Node entry point                  |
+| ~nodefunc~                 | Returned by a function    | Node entry point                  |
+| ~nodefunc+headline~        | Returned by a function    | Named heading (created if absent) |
+| ~node+headline~            | Fixed ID/title, or prompt | Named heading (created if absent) |
+| ~node+olp~                 | Fixed ID/title, or prompt | Outline path (created if absent)  |
+| ~node+olp+datetree~        | Fixed ID/title, or prompt | Datetree entry under optional OLP |
+| ~nodefunc+olp+datetree~    | Returned by a function    | Datetree entry under optional OLP |
 
 *** =(node TITLE-OR-ID)=
 
@@ -216,6 +218,48 @@ Heading strings may contain ~${var}~ template variables.
 '("x" "Example" entry
   "** %?\n"
   :target (node+olp "my-node-id" "Section" "Subsection")
+  :unnarrowed t)
+#+end_src
+
+*** =(node+olp+datetree TITLE-OR-ID "h1" "h2" ...)=
+
+Positions capture at an org datetree entry beneath the node.  The OLP
+headings are optional: pass none to build the datetree directly under the
+node, or pass one or more to navigate (or create) intermediate headings
+first.
+
+The datetree is built by ~org-datetree-find-*-create~ per the ~:tree-type~
+template property (default ~day~; other values: ~week~, ~month~, a list
+grouping like ~(year month day)~, or a function that returns such a list).
+Setting ~:time-prompt t~ asks for the date interactively; otherwise the
+current date is used (respecting ~org-overriding-default-time~).
+
+#+begin_src emacs-lisp
+;; Daily log entry under Journal / YYYY / YYYY-MM / YYYY-MM-DD
+'("j" "Journal" plain
+  "- %U %?"
+  :target (node+olp+datetree "my-journal-id" "Log")
+  :unnarrowed t)
+
+;; Weekly retrospective, ask for date at capture time
+'("r" "Weekly retro" entry
+  "** %?\n"
+  :target (node+olp+datetree "my-journal-id")
+  :tree-type week
+  :time-prompt t
+  :unnarrowed t)
+#+end_src
+
+*** =(nodefunc+olp+datetree FUNCTION "h1" "h2" ...)=
+
+Like ~node+olp+datetree~, but the destination node is computed by
+FUNCTION at capture time instead of looked up by ID or title.  All other
+semantics (optional OLP, ~:tree-type~, ~:time-prompt~) are identical.
+
+#+begin_src emacs-lisp
+'("d" "Daily note" plain
+  "- %?"
+  :target (nodefunc+olp+datetree my-daily-node-function "Log")
   :unnarrowed t)
 #+end_src
 

@@ -13,6 +13,7 @@ It does **not** patch org-roam source files.
 | `org-roam-gt-capture.el` | New capture target types (advice only) |
 | `tests/test-org-roam-gt-capture.el` | Buttercup test suite |
 | `tests/test-helper.el` | Load-path setup for batch testing |
+| `Makefile` | `make test`, `make clean` |
 | `readme.org` | User-facing documentation |
 | `ai/for-claude.md` | Full technical reference |
 
@@ -27,22 +28,18 @@ It does **not** patch org-roam source files.
 
 ## Architecture in one paragraph
 
-`org-roam-gt-capture.el` installs a single `:before-until` advice on
-`org-roam-capture--setup-target-location`. This intercepts four new `:target`
-types (`nodefunc`, `nodefunc+headline`, `node+headline`, `node+olp`) and
-returns `nil` for everything else, letting org-roam handle standard types.
-Templates live in the standard `org-roam-capture-templates` variable unchanged.
+`org-roam-gt-capture.el` installs a single `:around` advice on
+`org-roam-capture--setup-target-location`. This intercepts six new `:target`
+types (`nodefunc`, `nodefunc+headline`, `node+headline`, `node+olp`,
+`node+olp+datetree`, `nodefunc+olp+datetree`) and calls the original function
+for everything else, letting org-roam handle standard types. Templates live in
+the standard `org-roam-capture-templates` variable unchanged.
 
 ## Running tests
 
 ```sh
-BUTTERCUP=$(ls -d ~/.emacs.d/arm64/*/straight/build/buttercup 2>/dev/null | head -1)
-emacs --batch \
-  -L ~/.emacs.d/modules/org-roam-gt \
-  -L ~/.emacs.d/modules/org-roam-gt/tests \
-  -L "$BUTTERCUP" \
-  --eval "(require 'buttercup)" \
-  -f buttercup-run-discover tests/
+make test    # runs the buttercup suite via Makefile
+make clean   # removes stale .elc files
 ```
 
 See `ai/for-claude.md` for the full technical reference including all target
