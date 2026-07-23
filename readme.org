@@ -13,30 +13,49 @@ no built-in keyboard shortcuts.
    function, which is significantly faster on large databases and lets you
    control formatting in Lisp rather than a custom mini-language.
 
-2. *Richer capture targets* — four new ~:target~ forms for
+2. *Richer capture targets* — six new ~:target~ forms for
    ~org-roam-capture-templates~ that let you route captures to computed nodes,
-   named headings, and arbitrary outline paths.  These cover the patterns that
-   come up constantly in a structured PKM workflow: "today's daily note, under
-   the Log section", "a specific project node, under Actions", "a fixed
-   reference file, two levels deep".
+   named headings, arbitrary outline paths, and datetree entries.  These cover
+   the patterns that come up constantly in a structured PKM workflow: "today's
+   daily note, under the Log section", "a specific project node, under
+   Actions", "a fixed reference file, two levels deep", "a journal entry
+   under today's date".
 
 3. *Speed command menu* — a hydra bound to ~m~ in ~org-speed-commands~,
    giving one-keystroke access to capture, refile, find, and extract-subtree
    from any org heading.
 
-** Setup
+** Installation
+
+Once accepted by [[https://melpa.org/][MELPA]]:
+
+#+begin_src emacs-lisp
+(use-package org-roam-gt
+  :ensure t
+  :config
+  ;; Optional: load the speed-command hydra (also install `hydra' from MELPA)
+  (require 'org-roam-gt-hydra)
+  (org-roam-gt-mode 1))
+#+end_src
+
+Or from a local checkout:
 
 #+begin_src emacs-lisp
 (use-package org-roam-gt
   :load-path "~/.emacs.d/modules/org-roam-gt"
   :config
-  ;; Optional: load the speed-command hydra (requires the 'hydra' package)
   (require 'org-roam-gt-hydra)
   (org-roam-gt-mode 1))
 #+end_src
 
 To disable, call ~(org-roam-gt-mode -1)~.  All features are controlled
 by the mode and restore their previous state on disable.
+
+The ~hydra~ package is an *optional* runtime dependency and is intentionally
+not listed in ~Package-Requires~.  The hydra file loads it via
+~(require 'hydra nil t)~ and silently skips registering the hydra when it
+is absent.  Users who want the speed-command menu need to install ~hydra~
+separately.
 
 ** Selectively disabling features
 
@@ -291,3 +310,27 @@ invocation is slow.
 produces the same display but runs faster, which shortens the pause
 noticeably.  The completion interface looks and behaves identically.  The
 original template is restored if you disable the mode.
+
+** Development
+
+The repository ships a ~Makefile~ that drives every dev workflow via a
+project-local ~.elpa/~ (nothing touches your user package directory):
+
+#+begin_src sh
+make              # byte-compile
+make test         # run the buttercup test suite
+make lint         # package-lint
+make checkdoc     # checkdoc (errors on any warning)
+make check-declare  # verify declare-function arguments
+make check        # compile + lint + checkdoc + check-declare
+make clean        # remove *.elc
+#+end_src
+
+The GitHub Actions workflow at ~.github/workflows/package-lint.yml~
+runs ~make lint~, ~make checkdoc~, ~make check-declare~, and ~make test~
+on Emacs 27.1, 28.2, 29.4, and snapshot.
+
+** MELPA submission
+
+The MELPA recipe lives at ~melpa/org-roam-gt~; instructions for
+submitting it upstream are in ~melpa/README.md~.

@@ -8,8 +8,8 @@ patch org-roam source files. Two independent features:
 1. **Faster node display** — replaces `org-roam-node-display-template` with a
    function (`org-roam-gt-default-node-format`) instead of a string.
 
-2. **New capture target types** — adds four new `:target` forms to
-   `org-roam-capture-templates` by installing `:before-until` advice on
+2. **New capture target types** — adds six new `:target` forms to
+   `org-roam-capture-templates` by installing `:around` advice on
    `org-roam-capture--setup-target-location`. All other capture machinery
    (template variable, entry points, chrome-server) is unchanged.
 
@@ -35,9 +35,9 @@ modules/org-roam-gt/
 calls to position the buffer for every capture template. It dispatches on the
 `:target` type and errors on unknown types.
 
-`org-roam-gt-capture--dispatch` is installed as `:before-until` advice on that
-function. It returns non-nil (an org ID) when it handles the target, or `nil`
-to fall through to org-roam's original handler for all standard types.
+`org-roam-gt-capture--dispatch` is installed as `:around` advice on that
+function. It handles the six new target types itself and calls the original
+function (`funcall orig-fn`) for all standard types.
 
 **Enable/disable is just adding/removing that one advice.** There is no separate
 template variable, no override of `org-roam-capture`, and no knowledge of
@@ -45,7 +45,7 @@ chrome-server or any other caller.
 
 ## New target types
 
-All four are handled in `org-roam-gt-capture--dispatch` via `pcase`.
+All six are handled in `org-roam-gt-capture--dispatch` via `pcase`.
 
 ### `(nodefunc FUNCTION)`
 - Calls `(FUNCTION)` → must return an `org-roam-node`
@@ -68,6 +68,23 @@ All four are handled in `org-roam-gt-capture--dispatch` via `pcase`.
 - Each heading level is found or created in sequence
 - Heading strings may contain `${var}` template variables (expanded via
   `org-roam-capture--fill-template`)
+
+### `(node+olp+datetree TITLE-OR-ID "h1" "h2" ...)`
+- Same node lookup as `node+headline`
+- OLP headings are **optional**: with none, the datetree is built directly
+  under the node; with one or more, they are navigated/created first
+- Datetree entry is created by `org-datetree-find-*-create`, dispatched on the
+  template's `:tree-type` (`day` (default), `week`, `month`, a list grouping
+  like `(year month day)`, or a function returning such a list)
+- Respects `:time-prompt t` to ask for the date interactively, and
+  `org-overriding-default-time` otherwise
+- Datetree is scoped to the target subtree (via `keep-restriction`
+  `subtree-at-point`) when point is at a heading
+
+### `(nodefunc+olp+datetree FUNCTION "h1" "h2" ...)`
+- Like `node+olp+datetree`, but the destination node is returned by FUNCTION
+  instead of looked up by ID or title
+- Same OLP, `:tree-type`, and `:time-prompt` semantics
 
 ## Key helper functions
 
@@ -109,20 +126,58 @@ before adding all templates, so re-evaluating the block is idempotent.
 | `q` | Quick todo (daily) | `nodefunc+headline dmg-roam-dailies-setup-destination-day "Actions"` |
 | `a` | Link from Ahmed | `node "id-links-from-ahmed"` (standard) |
 
-## Tests
+## Dev workflow
+
+The Makefile bootstraps a project-local `.elpa/` (does NOT touch the user's
+package directory) and provides:
+
+```sh
+make               # byte-compile (default)
+make test          # buttercup suite
+make lint          # package-lint
+make checkdoc      # checkdoc (errors on any warning)
+make check-declare # verify declare-function arguments
+make check         # compile + lint + checkdoc + check-declare
+make clean         # remove *.elc
+```
 
 Buttercup tests in `tests/test-org-roam-gt-capture.el`. Run with:
 
 ```sh
-emacs --batch \
-  -L ~/.emacs.d/modules/org-roam-gt \
-  -L ~/.emacs.d/modules/org-roam-gt/tests \
-  -L <buttercup-dir> \
-  -f buttercup-run-discover tests/
+make test        # from the module directory
+make -C ~/.emacs.d/modules/org-roam-gt test   # from anywhere
 ```
 
 `test-helper.el` sets up load-path for org-roam, org, and straight.el build
-dirs (using the same arch-detection loop as other modules).
+dirs (using the same arch-detection loop as other modules). It also sets
+`load-prefer-newer` so a stale `.elc` cannot shadow current sources — the
+`make clean` target removes them entirely if that shadowing is suspected.
+
+Two categories of tests:
+
+- **Unit tests** exercise the heading/OLP finders and the dispatch advice
+  directly.
+- **End-to-end capture tests** drive `org-roam-capture` against a temp-file
+  fixture with mocked node lookups (no live org-roam DB needed) and assert
+  the inserted sentinel lands under the expected heading.  These guard
+  against a double-advance bug in
+  `org-roam-capture--adjust-point-for-capture-type` × `org-capture-place-plain-text`
+  that used to push non-`:prepend` `plain` templates into a sibling subtree.
+
+## MELPA submission
+
+Recipe: `melpa/org-roam-gt` — GitHub fetcher against `dmgerman/org-roam-gt`,
+with `:files` selecting the three `org-roam-gt*.el` files.  Submission
+instructions in `melpa/README.md`.
+
+Package headers (`Package-Requires`, `URL`, `Maintainer`, `SPDX-License-Identifier`,
+end-of-file markers) are already MELPA-compliant.  Every commit is CI-checked
+via `.github/workflows/package-lint.yml` on Emacs 27.1, 28.2, 29.4, and
+snapshot.
+
+The `hydra' dependency is intentionally NOT declared in `Package-Requires`;
+`org-roam-gt-hydra.el` uses `(require 'hydra nil t)` and skips registration
+if `hydra' is absent.  See `melpa/README.md` for rationale.
 
 ## Design constraints
 

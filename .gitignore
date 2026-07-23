@@ -1,2 +1,4 @@
 ai/reddit.md
 *~
+*.elc
+.elpa/

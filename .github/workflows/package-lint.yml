@@ -1,0 +1,42 @@
+name: package-lint
+
+on:
+  push:
+    paths:
+      - '**.el'
+      - '.github/workflows/package-lint.yml'
+      - 'Makefile'
+  pull_request:
+    paths:
+      - '**.el'
+      - '.github/workflows/package-lint.yml'
+      - 'Makefile'
+
+jobs:
+  lint:
+    name: package-lint on Emacs ${{ matrix.emacs_version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        emacs_version:
+          - '30'  # Package-Requires floor
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Emacs
+        uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs_version }}
+
+      - name: Run package-lint via make
+        run: make lint
+
+      - name: Run checkdoc via make
+        run: make checkdoc
+
+      - name: Run check-declare via make
+        run: make check-declare
+
+      - name: Run buttercup tests via make
+        run: make test

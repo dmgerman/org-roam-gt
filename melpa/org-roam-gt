@@ -1,0 +1,4 @@
+(org-roam-gt
+ :fetcher github
+ :repo "dmgerman/org-roam-gt"
+ :files ("org-roam-gt.el" "org-roam-gt-capture.el" "org-roam-gt-hydra.el"))

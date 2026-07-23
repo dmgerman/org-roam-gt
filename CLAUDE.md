@@ -13,7 +13,10 @@ It does **not** patch org-roam source files.
 | `org-roam-gt-capture.el` | New capture target types (advice only) |
 | `tests/test-org-roam-gt-capture.el` | Buttercup test suite |
 | `tests/test-helper.el` | Load-path setup for batch testing |
-| `Makefile` | `make test`, `make clean` |
+| `Makefile` | `make`, `make test`, `make lint`, `make checkdoc`, `make check-declare`, `make check`, `make clean` |
+| `LICENSE` | GPL-3.0-or-later |
+| `melpa/` | MELPA recipe (`org-roam-gt`) and submission instructions |
+| `.github/workflows/package-lint.yml` | CI: lint + checkdoc + check-declare + test on Emacs 27.1/28.2/29.4/snapshot |
 | `readme.org` | User-facing documentation |
 | `ai/for-claude.md` | Full technical reference |
 
@@ -35,12 +38,20 @@ types (`nodefunc`, `nodefunc+headline`, `node+headline`, `node+olp`,
 for everything else, letting org-roam handle standard types. Templates live in
 the standard `org-roam-capture-templates` variable unchanged.
 
-## Running tests
+## Running tests and checks
 
 ```sh
-make test    # runs the buttercup suite via Makefile
-make clean   # removes stale .elc files
+make               # byte-compile (default)
+make test          # buttercup suite
+make lint          # package-lint
+make checkdoc      # checkdoc (errors on any warning)
+make check-declare # verify declare-function arguments
+make check         # compile + lint + checkdoc + check-declare
+make clean         # remove *.elc
 ```
+
+Every target bootstraps its dependencies into a project-local `.elpa/` on
+first use — the user's package directory is never touched.
 
 See `ai/for-claude.md` for the full technical reference including all target
 type semantics, helper functions, and current template list.

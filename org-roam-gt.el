@@ -1,11 +1,17 @@
-;;; org-roam-gt.el --- improvements for org-roam                     -*- lexical-binding: t; -*-
+;;; org-roam-gt.el --- Improvements for org-roam  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2024,2025 Daniel M. German
+;; Copyright (C) 2024, 2025, 2026 Daniel M. German
 
 ;; Author: Daniel M. German <dmg@turingmachine.org>
-;; Keywords: org-roam
-;; Version: 0.3
+;; Maintainer: Daniel M. German <dmg@turingmachine.org>
+;; Assisted-by: Claude:claude-opus-4-7
+;; Keywords: outlines, hypermedia
+;; URL: https://github.com/dmgerman/org-roam-gt
+;; Version: 0.4
+;; Package-Requires: ((emacs "27.1") (org "9.5") (org-roam "2.2.2"))
 
+;; SPDX-License-Identifier: GPL-3.0-or-later
+;;
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
@@ -17,7 +23,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -46,34 +52,35 @@
   "Improvements for org-roam: faster search, richer capture targets, speed commands."
   :group 'org-roam)
 
-;;; Code;
+;;; Verify org-roam version
 
-;; verify version
-
-(let* (
-       ;; we first have to clean up the junk from the org-roam-version
-       (raw-version (org-roam-version))
-       (org-roam-version0 (if (string-prefix-p "v" raw-version)
-                              (substring raw-version 1)
-                            raw-version))
-       (org-roam-version  (when (and (stringp org-roam-version0)
-                                   (string-match "-" org-roam-version0))
-                              (substring org-roam-version0 0 (match-beginning 0))
-                            ))
-       (min-version "2.2.2")
-       )
-  ;; org-roam returns the commit id if user is running org-roam from git
-  ;; assume the user knows what is going once
-  ;; if we can't convert it, it is not a "proper version"
-  (message "org-roam-gt: Org roam version [%s]... continuing" raw-version)
-  (if (not org-roam-version)
-      (message "Org-roam version returns [%s] which is not a proper version" raw-version)
-    (unless (version<= min-version org-roam-version)
-      (let (
-            (message (format "org-roam version %s or later required, but %s is loaded"
-                             min-version org-roam-version))
-            )
-        (error message)))))
+(let* (;; `org-roam-version' may signal on MELPA installs (its header search
+       ;; regex looks for `;; Version:', which MELPA rewrites to
+       ;; `;; Package-Version:').  Treat any error as "version unknown" and
+       ;; assume the user has a recent enough org-roam.
+       (raw-version (condition-case _ (org-roam-version) (error nil)))
+       ;; Strip the leading `v' (e.g. "v2.2.2") and any git-describe suffix
+       ;; ("-<n>-g<sha>") that `org-roam-version' emits when org-roam is
+       ;; running out of a git checkout.
+       (stripped (when (stringp raw-version)
+                   (if (string-prefix-p "v" raw-version)
+                       (substring raw-version 1)
+                     raw-version)))
+       (numeric (when (and (stringp stripped)
+                           (string-match "-" stripped))
+                  (substring stripped 0 (match-beginning 0))))
+       (min-version "2.2.2"))
+  (cond
+   ((not raw-version)
+    (message "org-roam-gt: org-roam version unavailable, skipping check"))
+   ((not numeric)
+    (message "org-roam-gt: org-roam version [%s] is not parseable, skipping check"
+             raw-version))
+   ((not (version<= min-version numeric))
+    (error "Org-roam version %s or later required, but %s is loaded"
+           min-version numeric))
+   (t
+    (message "org-roam-gt: org-roam version [%s]... continuing" raw-version))))
 
 (defvar org-roam-gt-enable-hook nil
   "Hook run when `org-roam-gt-mode' is enabled.
@@ -96,7 +103,8 @@ after changing."
 (defcustom org-roam-gt-enable-capture-targets t
   "When non-nil, install advice that adds new capture target types.
 The new types are: `nodefunc', `nodefunc+headline', `node+headline',
-and `node+olp'.  See the readme for details.
+`node+olp', `node+olp+datetree', and `nodefunc+olp+datetree'.  See the
+readme for details.
 Set before enabling `org-roam-gt-mode', or disable and re-enable the mode
 after changing."
   :type 'boolean
@@ -105,15 +113,14 @@ after changing."
 ;;; support functions
 
 (defun org-roam-gt--to-string (st)
-  "Make sure we have ST is a string. if it is a list, concatenate it."
+  "Coerce ST to a string.  If ST is a list, its elements are joined with spaces."
   (cond
    ((stringp st) st)
-   ((listp st) (mapconcat 'identity st " "))
+   ((listp st) (mapconcat #'identity st " "))
    (t "")))
-      
 
 (defun org-roam-gt--truncate (st width)
-  "Return ST as a string of length WIDTH. Using spaces for padding"
+  "Return ST as a string of length WIDTH, padded with spaces."
   (truncate-string-to-width (org-roam-gt--to-string st) width nil ? ))
 
 (defun org-roam-gt--format-todo (st width)
@@ -125,10 +132,10 @@ after changing."
 (defun org-roam-gt--format-tags (tags width)
   "Return TAGS as a string of width WIDTH.
 Prefixes every tag with #."
-  (org-roam-gt--truncate 
+  (org-roam-gt--truncate
    (mapconcat (lambda (tag) (concat "#" tag)) tags " ")
    width))
-  
+
 (defun org-roam-gt--format-file (file)
   "Simply remove org-roam-directory from the path in FILE."
   (substring file (length org-roam-directory)))
@@ -138,10 +145,10 @@ Prefixes every tag with #."
 This function is equivalent to the following template
 
     (setq org-roam-node-display-template
-              (concat 
-                (propertize \"${todo:10} \" 'face 'org-todo)
+              (concat
+                (propertize \"${todo:10} \" \\='face \\='org-todo)
                 \"${todo:10} \"
-                (propertize \"${tags:30} \" 'face 'org-tag)
+                (propertize \"${tags:30} \" \\='face \\='org-tag)
                 \"${title:80} \"
                 \"${file}\"
                 \"${olp}\"
@@ -165,13 +172,13 @@ This function is equivalent to the following template
 ; and org-roam-gt-disable-hook automatically.
 
 (defvar org-roam-gt-node-template-save org-roam-node-display-template
-  "save the original org-roam-node-display-template so we can restore them if needed")
+  "Saved value of `org-roam-node-display-template' for later restoration.")
 
 (defun org-roam-gt-set-node-template ()
   "Replace the node display template with a Lisp function if enabled."
   (setq org-roam-gt-node-template-save org-roam-node-display-template)
   (when org-roam-gt-enable-node-display-function
-    (setq org-roam-node-display-template 'org-roam-gt-default-node-format)))
+    (setq org-roam-node-display-template #'org-roam-gt-default-node-format)))
 
 (defun org-roam-gt-reset-node-template ()
   "Restore the node display template to its saved state."
@@ -195,16 +202,20 @@ This function is equivalent to the following template
   (when org-roam-gt-enable-capture-targets
     (org-roam-gt-capture--disable)))
 
+;;;###autoload
 (define-minor-mode org-roam-gt-mode
   "Minor mode that enables improvements in speed in org-roam.
 
-Specifically it improves the speed of the retrieval and
-and formatting of nodes from the database."
+Specifically it improves the speed of the retrieval and formatting of
+nodes from the database, and adds new `:target' types to
+`org-roam-capture-templates'."
   :global t
-  :lighter   " _o-r-gt_"    ; lighter
+  :lighter " _o-r-gt_"
   :keymap nil
   (if org-roam-gt-mode
       (org-roam-gt-mode-enable)
     (org-roam-gt-mode-disable)))
 
 (provide 'org-roam-gt)
+
+;;; org-roam-gt.el ends here

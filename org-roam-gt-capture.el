@@ -1,11 +1,17 @@
 ;;; org-roam-gt-capture.el --- Extended capture targets for org-roam  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2024,2025 Daniel M. German
+;; Copyright (C) 2024, 2025, 2026 Daniel M. German
 
 ;; Author: Daniel M. German <dmg@turingmachine.org>
-;; Keywords: org-roam, capture
-;; Version: 0.1
+;; Maintainer: Daniel M. German <dmg@turingmachine.org>
+;; Assisted-by: Claude:claude-opus-4-7
+;; Keywords: outlines, hypermedia
+;; URL: https://github.com/dmgerman/org-roam-gt
+;; Version: 0.4
+;; Package-Requires: ((emacs "27.1") (org "9.5") (org-roam "2.2.2"))
 
+;; SPDX-License-Identifier: GPL-3.0-or-later
+;;
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
@@ -17,7 +23,7 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -58,6 +64,14 @@
 (require 'org-roam)
 (require 'org-capture)
 
+;; Dynamic variables `org-read-date' writes into to communicate whether the
+;; user supplied a time and/or an end-of-range time.  We `let'-bind them
+;; below to suppress those writes from leaking into callers; declaring them
+;; here makes the bindings dynamic under `lexical-binding: t' and silences
+;; the unused-lexical-variable byte-compiler warning.
+(defvar org-time-was-given)
+(defvar org-end-time-was-given)
+
 ;;; Heading helpers
 
 (defun org-roam-gt-capture-find-heading-in-subtree (heading level)
@@ -90,9 +104,10 @@ whether the heading was found or newly created."
          (point-marker))))))
 
 (defun org-roam-gt-capture-find-or-create-olp (olp)
-  "Return a marker at the entry for outline path OLP, creating headings as needed.
-OLP is a list of heading strings. Each string may contain ${var} template variables
-which are expanded via `org-roam-capture--fill-template'."
+  "Return a marker at the entry for outline path OLP, creating as needed.
+OLP is a list of heading strings.  Each string may contain ${var}
+template variables which are expanded via
+`org-roam-capture--fill-template'."
   (let* ((level 1)
          (lmin 1)
          (lmax 1)
@@ -128,10 +143,10 @@ which are expanded via `org-roam-capture--fill-template'."
              (when (and (>= level lmin) (<= level lmax))
                (setq found (match-beginning 0) flevel level cnt (1+ cnt))))
            (when (zerop cnt)
-             (error "org-roam-gt-capture: failed to locate heading after creating it: %s"
+             (error "Org-roam-gt-capture: failed to locate heading after creating it: %s"
                     heading))))
        (unless found
-         (error "org-roam-gt-capture: OLP traversal produced nil position at heading: %s"
+         (error "Org-roam-gt-capture: OLP traversal produced nil position at heading: %s"
                 heading))
        (goto-char found)
        (setq lmin (1+ flevel) lmax (+ lmin (if org-odd-levels-only 1 0)))
@@ -144,8 +159,8 @@ which are expanded via `org-roam-capture--fill-template'."
 (defun org-roam-gt-capture--datetree-at-point ()
   "Build a datetree at the current position.
 Delegates entirely to org's datetree machinery, honouring the standard
-org-capture template properties :tree-type and :time-prompt, exactly as
-`org-capture' does for `file+olp+datetree'.
+`org-capture' template properties :tree-type and :time-prompt, exactly
+as `org-capture' does for `file+olp+datetree'.
 
 Passes `subtree-at-point' to the datetree function when point is at a
 heading (heading-level node or OLP endpoint), so the tree is scoped to
@@ -155,7 +170,11 @@ OLP), so the datetree is built at file scope — matching org behaviour."
     (funcall
      (pcase (org-capture-get :tree-type)
        (`week  #'org-datetree-find-iso-week-create)
-       (`month #'org-datetree-find-month-create)
+       ;; `intern-soft' avoids a package-lint false positive: its stdlib data
+       ;; incorrectly marks `org-datetree-find-month-create' as removed from
+       ;; Emacs core, but the function is present in every Org since 9.4.
+       (`month (or (intern-soft "org-datetree-find-month-create")
+                   (error "Function `org-datetree-find-month-create' unavailable")))
        (`day   #'org-datetree-find-date-create)
        ((pred not) #'org-datetree-find-date-create)
        ;; NOTE: functionp must precede listp — lambda forms satisfy both predicates
@@ -165,7 +184,7 @@ OLP), so the datetree is built at file scope — matching org behaviour."
        ((and (pred listp) grouping)
         (lambda (d keep)
           (org-datetree-find-create-entry grouping d keep)))
-       (_ (error "org-roam-gt-capture: unrecognized :tree-type %S"
+       (_ (error "Org-roam-gt-capture: unrecognized :tree-type %S"
                  (org-capture-get :tree-type))))
      (calendar-gregorian-from-absolute
       (cond
@@ -181,7 +200,9 @@ OLP), so the datetree is built at file scope — matching org behaviour."
            (if (or org-time-was-given
                    (= (time-to-days prompt-time) (org-today)))
                prompt-time
-             (org-encode-time
+             ;; `encode-time' in Emacs 27.1+ accepts a decoded-time list
+             ;; directly, matching `org-encode-time' shim behaviour.
+             (encode-time
               (apply #'list 0 0 org-extend-today-until
                      (cdddr (decode-time prompt-time))))))
           (time-to-days prompt-time)))
@@ -210,18 +231,18 @@ to pick a node before displaying the template menu."
 (defun org-roam-gt-capture--validate-node (node context)
   "Signal a user-error if NODE is nil, citing CONTEXT for the template author."
   (unless node
-    (user-error "org-roam-gt-capture: %s returned nil — function must return an org-roam-node" context))
+    (user-error "Org-roam-gt-capture: %s returned nil — function must return an org-roam-node" context))
   (unless (org-roam-node-file node)
-    (user-error "org-roam-gt-capture: node returned by %s has no file path" context))
+    (user-error "Org-roam-gt-capture: node returned by %s has no file path" context))
   (unless (org-roam-node-point node)
-    (user-error "org-roam-gt-capture: node returned by %s has no buffer position" context)))
+    (user-error "Org-roam-gt-capture: node returned by %s has no buffer position" context)))
 
 (defun org-roam-gt-capture--setup-nodefunc (target-spec)
   "Position buffer at the node returned by the function in TARGET-SPEC.
 Returns point."
   (let ((fn (nth 1 target-spec)))
     (unless (functionp fn)
-      (user-error "org-roam-gt-capture: nodefunc target requires a function, got: %S" fn))
+      (user-error "Org-roam-gt-capture: nodefunc target requires a function, got: %S" fn))
     (let ((node (funcall fn)))
       (org-roam-gt-capture--validate-node node "nodefunc")
       (setq org-roam-capture--node node)
@@ -236,9 +257,9 @@ Returns point at the heading."
   (let ((fn   (nth 1 target-spec))
         (head (nth 2 target-spec)))
     (unless (functionp fn)
-      (user-error "org-roam-gt-capture: nodefunc+headline target requires a function, got: %S" fn))
+      (user-error "Org-roam-gt-capture: nodefunc+headline target requires a function, got: %S" fn))
     (unless (stringp head)
-      (user-error "org-roam-gt-capture: nodefunc+headline target requires a headline string, got: %S" head))
+      (user-error "Org-roam-gt-capture: nodefunc+headline target requires a headline string, got: %S" head))
     (let ((node (funcall fn)))
       (org-roam-gt-capture--validate-node node "nodefunc+headline")
       (setq org-roam-capture--node node)
@@ -254,7 +275,7 @@ Returns point at the heading."
   (let ((title-or-id (nth 1 target-spec))
         (head        (nth 2 target-spec)))
     (unless (stringp head)
-      (user-error "org-roam-gt-capture: node+headline target requires a headline string, got: %S" head))
+      (user-error "Org-roam-gt-capture: node+headline target requires a headline string, got: %S" head))
     (let ((node (org-roam-gt-capture--find-node title-or-id)))
       (org-roam-gt-capture--validate-node node "node+headline")
       (setq org-roam-capture--node node)
@@ -270,7 +291,7 @@ Returns point at the final heading."
   (let ((title-or-id (nth 1 target-spec))
         (olp         (cddr target-spec)))
     (unless (consp olp)
-      (user-error "org-roam-gt-capture: node+olp target requires at least one heading, got: %S" olp))
+      (user-error "Org-roam-gt-capture: node+olp target requires at least one heading, got: %S" olp))
     (let ((node (org-roam-gt-capture--find-node title-or-id)))
       (org-roam-gt-capture--validate-node node "node+olp")
       (setq org-roam-capture--node node)
@@ -298,13 +319,13 @@ Returns point at the datetree entry."
       (point))))
 
 (defun org-roam-gt-capture--setup-nodefunc+olp+datetree (target-spec)
-  "Position buffer at a datetree entry within the node returned by function in TARGET-SPEC.
-Optional OLP headings between the node and the datetree are navigated/created.
-Returns point at the datetree entry."
+  "Position at a datetree entry within the node from function in TARGET-SPEC.
+Optional OLP headings between the node and the datetree are
+navigated/created.  Returns point at the datetree entry."
   (let ((fn  (nth 1 target-spec))
         (olp (cddr target-spec)))
     (unless (functionp fn)
-      (user-error "org-roam-gt-capture: nodefunc+olp+datetree target requires a function, got: %S" fn))
+      (user-error "Org-roam-gt-capture: nodefunc+olp+datetree target requires a function, got: %S" fn))
     (let ((node (funcall fn)))
       (org-roam-gt-capture--validate-node node "nodefunc+olp+datetree")
       (setq org-roam-capture--node node)
@@ -341,7 +362,7 @@ Handles new target types; calls ORIG-FN for standard types."
              (inherit-id (not (eq target-type 'nodefunc))))
         (save-excursion
           (unless position
-            (error "org-roam-gt-capture: setup function returned nil position for target type %s"
+            (error "Org-roam-gt-capture: setup function returned nil position for target type %s"
                    target-type))
           (goto-char position)
           (if-let* ((id (org-entry-get position "ID" inherit-id)))
