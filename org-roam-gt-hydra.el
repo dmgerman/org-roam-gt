@@ -45,6 +45,7 @@
 
 ;;; Code:
 
+(require 'hydra)
 (require 'org-roam)
 (require 'org-roam-gt)
 
