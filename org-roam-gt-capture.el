@@ -372,17 +372,47 @@ Handles new target types; calls ORIG-FN for standard types."
               (org-id-get)
             (run-hooks 'org-roam-capture-new-node-hook)))))))
 
+;;; Fix for org-roam plain-template placement bug
+
+(defun org-roam-gt-capture--adjust-point-dispatch (orig-fn &optional pos)
+  "Around advice fixing plain-template placement at a heading.
+Upstream `org-roam-capture--adjust-point-for-capture-type', for a plain
+template positioned on a heading without `:prepend', advances point to
+the end of the target subtree.  `org-capture-place-plain-text' then
+advances again to the following heading and inserts before it, so the
+capture lands in the sibling subtree.
+
+This advice short-circuits that one combination — plain template,
+heading-at-point, non-`:prepend' — by leaving point on the heading and
+returning it, so downstream placement lands inside the target.  Every
+other combination (POS at position 1, prepend, non-plain templates)
+falls through to ORIG-FN.  See
+ai/org-roam_bug_org-roam-capture--adjust-point-for-capture-type.org
+for the full report."
+  (or pos (setq pos (point)))
+  (goto-char pos)
+  (if (and (eq (org-capture-get :type) 'plain)
+           (/= pos 1)
+           (not (org-capture-get :prepend))
+           (org-at-heading-p))
+      (point)
+    (funcall orig-fn pos)))
+
 ;;; Mode enable / disable
 
 (defun org-roam-gt-capture--enable ()
   "Enable the org-roam-gt capture extension."
   (advice-add 'org-roam-capture--setup-target-location
-              :around #'org-roam-gt-capture--dispatch))
+              :around #'org-roam-gt-capture--dispatch)
+  (advice-add 'org-roam-capture--adjust-point-for-capture-type
+              :around #'org-roam-gt-capture--adjust-point-dispatch))
 
 (defun org-roam-gt-capture--disable ()
   "Disable the org-roam-gt capture extension."
   (advice-remove 'org-roam-capture--setup-target-location
-                 #'org-roam-gt-capture--dispatch))
+                 #'org-roam-gt-capture--dispatch)
+  (advice-remove 'org-roam-capture--adjust-point-for-capture-type
+                 #'org-roam-gt-capture--adjust-point-dispatch))
 
 (provide 'org-roam-gt-capture)
 
