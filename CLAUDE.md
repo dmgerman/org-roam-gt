@@ -31,19 +31,21 @@ It does **not** patch org-roam source files.
 
 ## Architecture in one paragraph
 
-`org-roam-gt-capture.el` installs four pieces of advice on org-roam capture
+`org-roam-gt-capture.el` installs five pieces of advice on org-roam capture
 internals. `:around` on `org-roam-capture--setup-target-location` intercepts
 six new `:target` types (`nodefunc`, `nodefunc+headline`, `node+headline`,
 `node+olp`, `node+olp+datetree`, `nodefunc+olp+datetree`) and delegates
 everything else to the original. `:before` on the same function enforces the
-`:create-file yes/no` template property. `:filter-args` on
+`:create-file yes/no` template property and prompts for a node when a file*
+target's path expansion needs one. `:filter-args` on
 `org-roam-capture--fill-template` resolves `(file "PATH")` template bodies to
-file contents. `:around` on
-`org-roam-capture--adjust-point-for-capture-type` corrects an upstream
-double-advance for plain templates positioned at a heading (see
-`ai/org-roam_bug_org-roam-capture--adjust-point-for-capture-type.org`).
-Templates live in the standard `org-roam-capture-templates` variable
-unchanged.
+file contents. `:around` on `org-roam-capture--adjust-point-for-capture-type`
+corrects an upstream double-advance for plain templates positioned at a heading
+(see `ai/org-roam_bug_org-roam-capture--adjust-point-for-capture-type.org`).
+`:around` on `org-roam-capture` (the interactive entry) skips upstream's
+up-front `org-roam-node-read` — templates that need a node prompt only when
+the target is set up, matching the intent of the pre-reset fork. Templates
+live in the standard `org-roam-capture-templates` variable unchanged.
 
 ## Running tests and checks
 

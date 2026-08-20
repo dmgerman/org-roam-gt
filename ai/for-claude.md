@@ -29,6 +29,13 @@ patch org-roam source files. Two independent features:
    without `:prepend`. See
    `ai/org-roam_bug_org-roam-capture--adjust-point-for-capture-type.org`.
 
+6. **Defer node selection to per-template** — installs `:around` advice on
+   `org-roam-capture` that skips upstream's up-front `org-roam-node-read`.
+   Templates that target a fixed node never prompt; templates that need one
+   (file* with `${slug}`, `(node nil)`, `(node+headline nil …)`, …) prompt
+   only when the target is set up.  Port of the intent of fork commit
+   `0e55948` "Revamp org-roam-template processing".
+
 ## File layout
 
 ```
@@ -131,6 +138,31 @@ dispatch, and removed by `--disable`.
   no mutation of `org-roam-capture--template-keywords`, so unknown to org-roam
   and simply travels through as a plain capture-template property.
 
+## Deferred node selection
+
+`:around` on `org-roam-capture` (the interactive entry) replaces upstream's
+`(org-roam-node-read nil filter-fn)` → `org-roam-capture- :node ...` flow with
+a direct call to `org-roam-capture-` that passes a stub node from
+`org-roam-node-create`.  The stub is required because upstream unconditionally
+sets `(setf (org-roam-node-id node) ...)` and would error on nil.
+`:filter-fn` is threaded into template props so per-template prompts
+downstream can honour it.
+
+The stub is recognised later by `org-roam-gt-capture--stub-node-p` (both title
+and file are nil).  Two places replace it with a real node when the target
+needs one:
+
+- `--ensure-node-for-file-target` (extension to `--validate-create-file`) —
+  prompts via `org-roam-node-read` when a file* target is about to be
+  resolved.  Required because `--target-truepath` expands `${slug}` /
+  `${title}` from `org-roam-capture--node`.
+- `--find-node` — used by every node* target dispatch.  For `(node "id")`
+  looks up by ID/title.  For `(node nil)` falls through to
+  `org-roam-node-read` (the stub has no file, so the reuse guard fails).
+
+Templates that hit a fixed node (`(node "id")`, `(nodefunc fn)`, `(node+headline
+"id" …)`, and their olp/datetree variants) never prompt at all.
+
 ## Plain-template placement fix
 
 `:around` advice on `org-roam-capture--adjust-point-for-capture-type` short-
@@ -157,6 +189,8 @@ convenient. Full report in
 | `org-roam-gt-capture--position-at-node` | Common preamble for every node setup: validate, check `:create-file`, set buffer, widen, goto node point |
 | `org-roam-gt-capture--check-create-file` | Applies `:create-file` rules to a given file |
 | `org-roam-gt-capture--read-template-file` | Reads a template file for `(file "PATH")` resolution |
+| `org-roam-gt-capture--stub-node-p` | True when `org-roam-capture--node` is the placeholder from `--capture-no-prompt` |
+| `org-roam-gt-capture--ensure-node-for-file-target` | Prompts for a real node when a file* target needs one |
 
 ## Where templates are defined (user config)
 

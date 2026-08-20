@@ -115,20 +115,74 @@ Any other value is rejected.  When FILE is nil, only the value is validated."
              ":create-file yes requires destination file not to exist, but it does: %s"
              file))))))))
 
+(defun org-roam-gt-capture--stub-node-p (node)
+  "Return non-nil when NODE is the placeholder passed by `--capture-no-prompt'.
+Upstream `org-roam-capture-' requires a non-nil node, so `--capture-no-prompt'
+hands it a fresh `org-roam-node-create' whose title and file are both nil.
+That is the signature of \"no real node yet\"."
+  (and node
+       (null (org-roam-node-title node))
+       (null (org-roam-node-file node))))
+
+(defun org-roam-gt-capture--ensure-node-for-file-target ()
+  "For a file* target, prompt for a node if none has been set yet.
+Called by `--validate-create-file' before it resolves the true path —
+the resolution reads `${slug}' / `${title}' from
+`org-roam-capture--node', so a real node must exist first.  Recognises
+the placeholder from `--capture-no-prompt' via
+`--stub-node-p'.  Honours the template's `:filter-fn' when set."
+  (when (or (not org-roam-capture--node)
+            (org-roam-gt-capture--stub-node-p org-roam-capture--node))
+    (let* ((filter-fn (org-capture-get :filter-fn))
+           (node (org-roam-node-read nil filter-fn)))
+      (setf (org-roam-node-id node)
+            (or (org-roam-node-id node) (org-id-new)))
+      (setq org-roam-capture--node node))))
+
 (defun org-roam-gt-capture--validate-create-file (&rest _args)
   "Before-advice on `org-roam-capture--setup-target-location'.
-Runs the `:create-file' check up front.  For file* targets whose path is
-a string, the resolved destination file is checked here.  For node*
-targets only the value is validated; the file check is deferred to
-dispatch, once the node has been resolved."
+For file* targets: ensure a node exists (prompt if needed), then check
+`:create-file' against the resolved destination path.  For node*
+targets: only the `:create-file' value is validated here; the file
+check runs inside dispatch, once the node has been resolved."
   (let* ((target-spec (org-roam-capture--get-target))
          (target-type (car target-spec)))
     (if (memq target-type org-roam-gt-capture--file-target-types)
-        (let* ((path (nth 1 target-spec))
-               (true-path (and (stringp path)
-                               (org-roam-capture--target-truepath path))))
-          (org-roam-gt-capture--check-create-file true-path))
+        (progn
+          (org-roam-gt-capture--ensure-node-for-file-target)
+          (let* ((path (nth 1 target-spec))
+                 (true-path (and (stringp path)
+                                 (org-roam-capture--target-truepath path))))
+            (org-roam-gt-capture--check-create-file true-path)))
       (org-roam-gt-capture--check-create-file nil))))
+
+(defun org-roam-gt-capture--capture-no-prompt (_orig-fn &optional goto keys &rest kwargs)
+  "Around advice for `org-roam-capture'.
+Skips upstream's up-front `org-roam-node-read' call so `org-roam-capture'
+opens the template menu without a redundant \"Node:\" prompt.  Templates
+that target a fixed node (`node', `nodefunc', `node+headline' with an
+ID, ...) never prompt; templates that need one (file* with `${slug}',
+`node' with nil, ...) prompt when the target is set up — via
+`--ensure-node-for-file-target' or `--find-node'.
+
+_ORIG-FN is intentionally unused.  GOTO and KEYS are forwarded
+positionally to `org-roam-capture-'.  KWARGS carries the &key
+arguments of the interactive/programmatic call — `:filter-fn',
+`:templates', `:info' — and `:filter-fn' is threaded into template
+props so per-template prompts can honour it.
+
+Upstream `org-roam-capture-' calls `(setf (org-roam-node-id node) ...)'
+unconditionally, so a stub node from `org-roam-node-create' is passed
+instead of nil to avoid `wrong-type-argument'.  The stub is detected
+downstream by `--stub-node-p' and replaced with a real node whenever a
+target actually needs one."
+  (org-roam-capture-
+   :goto goto
+   :keys keys
+   :info (plist-get kwargs :info)
+   :templates (plist-get kwargs :templates)
+   :node (org-roam-node-create)
+   :props (list :filter-fn (plist-get kwargs :filter-fn))))
 
 (defun org-roam-gt-capture--read-template-file (path)
   "Return the contents of PATH as a string.
@@ -475,6 +529,8 @@ for the full report."
 
 (defun org-roam-gt-capture--enable ()
   "Enable the org-roam-gt capture extension."
+  (advice-add 'org-roam-capture
+              :around #'org-roam-gt-capture--capture-no-prompt)
   (advice-add 'org-roam-capture--setup-target-location
               :around #'org-roam-gt-capture--dispatch)
   (advice-add 'org-roam-capture--setup-target-location
@@ -486,6 +542,8 @@ for the full report."
 
 (defun org-roam-gt-capture--disable ()
   "Disable the org-roam-gt capture extension."
+  (advice-remove 'org-roam-capture
+                 #'org-roam-gt-capture--capture-no-prompt)
   (advice-remove 'org-roam-capture--setup-target-location
                  #'org-roam-gt-capture--dispatch)
   (advice-remove 'org-roam-capture--setup-target-location

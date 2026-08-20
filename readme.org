@@ -22,8 +22,12 @@ no built-in keyboard shortcuts.
    under today's date".  Two capture-template extensions complement the new
    targets: ~(file "PATH")~ loads a template body from a file, and
    ~:create-file yes/no~ makes the template's intent about file creation
-   explicit and enforced.  A fix for an upstream org-roam bug that
-   mis-placed plain templates positioned at a heading is also installed.
+   explicit and enforced.  The up-front "Node:" prompt that upstream
+   ~org-roam-capture~ always shows is skipped — templates that target a
+   fixed node never prompt at all, and those that need one prompt only
+   after you've picked the template.  A fix for an upstream org-roam bug
+   that mis-placed plain templates positioned at a heading is also
+   installed.
 
 3. *Speed command menu* — a hydra bound to ~m~ in ~org-speed-commands~,
    giving one-keystroke access to capture, refile, find, and extract-subtree
