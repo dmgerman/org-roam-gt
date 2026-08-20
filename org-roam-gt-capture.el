@@ -52,9 +52,22 @@
 ;;     (optional); then build a datetree under that position.  Respects
 ;;     :tree-type and :time-prompt.
 ;;
+;; Two additional capture-template extensions are also installed:
+;;
+;;   Template body / head-content loaded from a file:
+;;     A template body — or the head string of `file+head' / `file+head+olp'
+;;     — may be given as (file "PATH").  PATH is resolved relative to
+;;     `org-roam-directory' (absolute paths pass through) and its contents
+;;     are used as the template text.
+;;
+;;   :create-file yes/no template property:
+;;     Guards captures against a missing destination file.  If the file does
+;;     not yet exist: `yes' proceeds (org-roam creates it), `no' aborts with
+;;     a user error.  When the file already exists neither value has any
+;;     effect.  Any other value is rejected at capture time.
+;;
 ;; Activated via `org-roam-gt-mode'.  Templates continue to live in
-;; `org-roam-capture-templates' exactly as before; this library only adds
-;; the ability to handle the six new target types listed above.
+;; `org-roam-capture-templates' exactly as before.
 
 ;;; Code:
 
@@ -71,6 +84,75 @@
 ;; the unused-lexical-variable byte-compiler warning.
 (defvar org-time-was-given)
 (defvar org-end-time-was-given)
+
+;;; Template-body and :create-file extensions
+
+(defvar org-roam-gt-capture--file-target-types
+  '(file file+olp file+head file+head+olp file+datetree)
+  "Standard org-roam file-target types for which `:create-file' checks a path.")
+
+(defun org-roam-gt-capture--check-create-file (file)
+  "Enforce the `:create-file' template option against FILE.
+Semantics match the previous fork implementation:
+- `yes'  — FILE must NOT already exist; error if it does.
+- `no'   — FILE must already exist; error if it does not.
+- unset  — no constraint.
+Any other value is rejected.  When FILE is nil, only the value is validated."
+  (let ((create-file (org-capture-get :create-file)))
+    (when create-file
+      (unless (memq create-file '(yes no))
+        (user-error "Template :create-file must be `yes' or `no' [got %S]"
+                    create-file))
+      (when file
+        (let ((missing (org-roam-capture--new-file-p file)))
+          (cond
+           ((and missing (eq create-file 'no))
+            (user-error
+             ":create-file no requires destination file to exist, but it does not: %s"
+             file))
+           ((and (not missing) (eq create-file 'yes))
+            (user-error
+             ":create-file yes requires destination file not to exist, but it does: %s"
+             file))))))))
+
+(defun org-roam-gt-capture--validate-create-file (&rest _args)
+  "Before-advice on `org-roam-capture--setup-target-location'.
+Runs the `:create-file' check up front.  For file* targets whose path is
+a string, the resolved destination file is checked here.  For node*
+targets only the value is validated; the file check is deferred to
+dispatch, once the node has been resolved."
+  (let* ((target-spec (org-roam-capture--get-target))
+         (target-type (car target-spec)))
+    (if (memq target-type org-roam-gt-capture--file-target-types)
+        (let* ((path (nth 1 target-spec))
+               (true-path (and (stringp path)
+                               (org-roam-capture--target-truepath path))))
+          (org-roam-gt-capture--check-create-file true-path))
+      (org-roam-gt-capture--check-create-file nil))))
+
+(defun org-roam-gt-capture--read-template-file (path)
+  "Return the contents of PATH as a string.
+Relative PATH is expanded against `org-roam-directory'.  Signals a user
+error when the file cannot be read."
+  (let ((fullpath (expand-file-name path (or org-roam-directory
+                                             default-directory))))
+    (unless (file-readable-p fullpath)
+      (user-error "Template file not readable: %s" fullpath))
+    (with-temp-buffer
+      (insert-file-contents fullpath)
+      (buffer-string))))
+
+(defun org-roam-gt-capture--fill-template-filter (args)
+  "Filter-args advice for `org-roam-capture--fill-template'.
+ARGS is the argument list passed to the advised function; its first
+element is the template.  When that template is a `(file \"PATH\")'
+form, it is replaced with the contents of PATH before the original
+function runs.  Every other form (string, function, etc.) passes
+through unchanged."
+  (pcase args
+    (`((file ,(and (pred stringp) path)) . ,rest)
+     (cons (org-roam-gt-capture--read-template-file path) rest))
+    (_ args)))
 
 ;;; Heading helpers
 
@@ -237,67 +319,70 @@ to pick a node before displaying the template menu."
   (unless (org-roam-node-point node)
     (user-error "Org-roam-gt-capture: node returned by %s has no buffer position" context)))
 
+(defun org-roam-gt-capture--resolve-nodefunc (target-spec context)
+  "Call the function in TARGET-SPEC and return its `org-roam-node' result.
+Signals a user-error, citing CONTEXT, when the second element of
+TARGET-SPEC is not a function."
+  (let ((fn (nth 1 target-spec)))
+    (unless (functionp fn)
+      (user-error "Org-roam-gt-capture: %s target requires a function, got: %S"
+                  context fn))
+    (funcall fn)))
+
+(defun org-roam-gt-capture--require-headline (head context)
+  "Signal a user-error if HEAD is not a string, citing CONTEXT."
+  (unless (stringp head)
+    (user-error "Org-roam-gt-capture: %s target requires a headline string, got: %S"
+                context head)))
+
+(defun org-roam-gt-capture--position-at-node (node context)
+  "Common preamble for every node-based target setup function.
+Validate NODE, enforce `:create-file' against its file, set
+`org-roam-capture--node', switch to the target buffer, widen, and move
+point to the node's position.  CONTEXT is included in error messages so
+the template author sees which target type raised the issue."
+  (org-roam-gt-capture--validate-node node context)
+  (org-roam-gt-capture--check-create-file (org-roam-node-file node))
+  (setq org-roam-capture--node node)
+  (set-buffer (org-capture-target-buffer (org-roam-node-file node)))
+  (widen)
+  (goto-char (org-roam-node-point node)))
+
 (defun org-roam-gt-capture--setup-nodefunc (target-spec)
   "Position buffer at the node returned by the function in TARGET-SPEC.
 Returns point."
-  (let ((fn (nth 1 target-spec)))
-    (unless (functionp fn)
-      (user-error "Org-roam-gt-capture: nodefunc target requires a function, got: %S" fn))
-    (let ((node (funcall fn)))
-      (org-roam-gt-capture--validate-node node "nodefunc")
-      (setq org-roam-capture--node node)
-      (set-buffer (org-capture-target-buffer (org-roam-node-file node)))
-      (widen)
-      (goto-char (org-roam-node-point node))
-      (point))))
+  (let ((node (org-roam-gt-capture--resolve-nodefunc target-spec "nodefunc")))
+    (org-roam-gt-capture--position-at-node node "nodefunc")
+    (point)))
 
 (defun org-roam-gt-capture--setup-nodefunc+headline (target-spec)
   "Position buffer at HEADLINE under the node returned by function in TARGET-SPEC.
 Returns point at the heading."
-  (let ((fn   (nth 1 target-spec))
-        (head (nth 2 target-spec)))
-    (unless (functionp fn)
-      (user-error "Org-roam-gt-capture: nodefunc+headline target requires a function, got: %S" fn))
-    (unless (stringp head)
-      (user-error "Org-roam-gt-capture: nodefunc+headline target requires a headline string, got: %S" head))
-    (let ((node (funcall fn)))
-      (org-roam-gt-capture--validate-node node "nodefunc+headline")
-      (setq org-roam-capture--node node)
-      (set-buffer (org-capture-target-buffer (org-roam-node-file node)))
-      (widen)
-      (goto-char (org-roam-node-point node))
+  (let ((head (nth 2 target-spec)))
+    (org-roam-gt-capture--require-headline head "nodefunc+headline")
+    (let ((node (org-roam-gt-capture--resolve-nodefunc target-spec "nodefunc+headline")))
+      (org-roam-gt-capture--position-at-node node "nodefunc+headline")
       (goto-char (org-roam-gt-capture-find-or-create-heading head))
       (point))))
 
 (defun org-roam-gt-capture--setup-node+headline (target-spec)
   "Position buffer at HEADLINE under the node identified in TARGET-SPEC.
 Returns point at the heading."
-  (let ((title-or-id (nth 1 target-spec))
-        (head        (nth 2 target-spec)))
-    (unless (stringp head)
-      (user-error "Org-roam-gt-capture: node+headline target requires a headline string, got: %S" head))
-    (let ((node (org-roam-gt-capture--find-node title-or-id)))
-      (org-roam-gt-capture--validate-node node "node+headline")
-      (setq org-roam-capture--node node)
-      (set-buffer (org-capture-target-buffer (org-roam-node-file node)))
-      (widen)
-      (goto-char (org-roam-node-point node))
+  (let ((head (nth 2 target-spec)))
+    (org-roam-gt-capture--require-headline head "node+headline")
+    (let ((node (org-roam-gt-capture--find-node (nth 1 target-spec))))
+      (org-roam-gt-capture--position-at-node node "node+headline")
       (goto-char (org-roam-gt-capture-find-or-create-heading head))
       (point))))
 
 (defun org-roam-gt-capture--setup-node+olp (target-spec)
   "Position buffer at the outline path within the node identified in TARGET-SPEC.
 Returns point at the final heading."
-  (let ((title-or-id (nth 1 target-spec))
-        (olp         (cddr target-spec)))
+  (let ((olp (cddr target-spec)))
     (unless (consp olp)
       (user-error "Org-roam-gt-capture: node+olp target requires at least one heading, got: %S" olp))
-    (let ((node (org-roam-gt-capture--find-node title-or-id)))
-      (org-roam-gt-capture--validate-node node "node+olp")
-      (setq org-roam-capture--node node)
-      (set-buffer (org-capture-target-buffer (org-roam-node-file node)))
-      (widen)
-      (goto-char (org-roam-node-point node))
+    (let ((node (org-roam-gt-capture--find-node (nth 1 target-spec))))
+      (org-roam-gt-capture--position-at-node node "node+olp")
       (goto-char (org-roam-gt-capture-find-or-create-olp olp))
       (point))))
 
@@ -305,37 +390,25 @@ Returns point at the final heading."
   "Position buffer at a datetree entry within the node identified in TARGET-SPEC.
 Optional OLP headings between the node and the datetree are navigated/created.
 Returns point at the datetree entry."
-  (let ((title-or-id (nth 1 target-spec))
-        (olp         (cddr target-spec)))
-    (let ((node (org-roam-gt-capture--find-node title-or-id)))
-      (org-roam-gt-capture--validate-node node "node+olp+datetree")
-      (setq org-roam-capture--node node)
-      (set-buffer (org-capture-target-buffer (org-roam-node-file node)))
-      (widen)
-      (goto-char (org-roam-node-point node))
-      (when olp
-        (goto-char (org-roam-gt-capture-find-or-create-olp olp)))
-      (org-roam-gt-capture--datetree-at-point)
-      (point))))
+  (let ((olp (cddr target-spec))
+        (node (org-roam-gt-capture--find-node (nth 1 target-spec))))
+    (org-roam-gt-capture--position-at-node node "node+olp+datetree")
+    (when olp
+      (goto-char (org-roam-gt-capture-find-or-create-olp olp)))
+    (org-roam-gt-capture--datetree-at-point)
+    (point)))
 
 (defun org-roam-gt-capture--setup-nodefunc+olp+datetree (target-spec)
   "Position at a datetree entry within the node from function in TARGET-SPEC.
 Optional OLP headings between the node and the datetree are
 navigated/created.  Returns point at the datetree entry."
-  (let ((fn  (nth 1 target-spec))
-        (olp (cddr target-spec)))
-    (unless (functionp fn)
-      (user-error "Org-roam-gt-capture: nodefunc+olp+datetree target requires a function, got: %S" fn))
-    (let ((node (funcall fn)))
-      (org-roam-gt-capture--validate-node node "nodefunc+olp+datetree")
-      (setq org-roam-capture--node node)
-      (set-buffer (org-capture-target-buffer (org-roam-node-file node)))
-      (widen)
-      (goto-char (org-roam-node-point node))
-      (when olp
-        (goto-char (org-roam-gt-capture-find-or-create-olp olp)))
-      (org-roam-gt-capture--datetree-at-point)
-      (point))))
+  (let ((olp (cddr target-spec))
+        (node (org-roam-gt-capture--resolve-nodefunc target-spec "nodefunc+olp+datetree")))
+    (org-roam-gt-capture--position-at-node node "nodefunc+olp+datetree")
+    (when olp
+      (goto-char (org-roam-gt-capture-find-or-create-olp olp)))
+    (org-roam-gt-capture--datetree-at-point)
+    (point)))
 
 ;;; Advice dispatch
 
@@ -404,6 +477,10 @@ for the full report."
   "Enable the org-roam-gt capture extension."
   (advice-add 'org-roam-capture--setup-target-location
               :around #'org-roam-gt-capture--dispatch)
+  (advice-add 'org-roam-capture--setup-target-location
+              :before #'org-roam-gt-capture--validate-create-file)
+  (advice-add 'org-roam-capture--fill-template
+              :filter-args #'org-roam-gt-capture--fill-template-filter)
   (advice-add 'org-roam-capture--adjust-point-for-capture-type
               :around #'org-roam-gt-capture--adjust-point-dispatch))
 
@@ -411,6 +488,10 @@ for the full report."
   "Disable the org-roam-gt capture extension."
   (advice-remove 'org-roam-capture--setup-target-location
                  #'org-roam-gt-capture--dispatch)
+  (advice-remove 'org-roam-capture--setup-target-location
+                 #'org-roam-gt-capture--validate-create-file)
+  (advice-remove 'org-roam-capture--fill-template
+                 #'org-roam-gt-capture--fill-template-filter)
   (advice-remove 'org-roam-capture--adjust-point-for-capture-type
                  #'org-roam-gt-capture--adjust-point-dispatch))
 

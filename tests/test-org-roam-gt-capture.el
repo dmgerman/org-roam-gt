@@ -322,4 +322,88 @@
             (org-up-heading-safe))
           (expect (org-get-heading t t t t) :to-equal "Journal"))))))
 
+;;; Tests for (file "PATH") template resolution
+
+(describe "org-roam-gt-capture--fill-template-filter"
+
+  (it "resolves (file \"PATH\") to file contents"
+    (let ((org-roam-directory org-roam-gt-test-roam-files-dir))
+      (let ((result (org-roam-gt-capture--fill-template-filter
+                     (list '(file "template-head.txt")))))
+        (expect (car result) :to-match "#\\+title: \\${title}"))))
+
+  (it "leaves plain strings unchanged"
+    (let ((args (list "just a string" 'ensure-newline)))
+      (expect (org-roam-gt-capture--fill-template-filter args)
+              :to-equal args)))
+
+  (it "leaves function templates unchanged"
+    (let* ((fn (lambda () "generated"))
+           (args (list fn)))
+      (expect (org-roam-gt-capture--fill-template-filter args)
+              :to-equal args)))
+
+  (it "signals user-error when the file cannot be read"
+    (let ((org-roam-directory org-roam-gt-test-roam-files-dir))
+      (expect (org-roam-gt-capture--fill-template-filter
+               (list '(file "does-not-exist.txt")))
+              :to-throw 'user-error)))
+
+  (it "preserves trailing args (e.g. ensure-newline)"
+    (let ((org-roam-directory org-roam-gt-test-roam-files-dir))
+      (let ((result (org-roam-gt-capture--fill-template-filter
+                     (list '(file "template-head.txt") 'ensure-newline))))
+        (expect (cdr result) :to-equal '(ensure-newline))))))
+
+;;; Tests for :create-file guard
+
+(defmacro org-roam-gt-test-with-capture-plist (plist &rest body)
+  "Bind `org-capture-plist' so `org-capture-get' returns values from PLIST.
+PLIST is a plist of keys and values to inject."
+  (declare (indent 1))
+  `(let ((org-capture-plist ,plist))
+     ,@body))
+
+(describe "org-roam-gt-capture--check-create-file"
+
+  (it "is a no-op when :create-file is unset"
+    (org-roam-gt-test-with-capture-plist nil
+      (expect (org-roam-gt-capture--check-create-file "/tmp/anything") :not :to-throw)))
+
+  (it "rejects illegal :create-file values"
+    (org-roam-gt-test-with-capture-plist '(:create-file maybe)
+      (expect (org-roam-gt-capture--check-create-file nil) :to-throw 'user-error)))
+
+  (it "accepts :create-file yes when the file does not exist"
+    (let ((missing (concat (make-temp-name "/tmp/orgt-missing-") ".org")))
+      (org-roam-gt-test-with-capture-plist '(:create-file yes)
+        (expect (org-roam-gt-capture--check-create-file missing) :not :to-throw))))
+
+  (it "rejects :create-file yes when the file already exists"
+    (let ((existing (make-temp-file "orgt-existing-" nil ".org")))
+      (unwind-protect
+          (org-roam-gt-test-with-capture-plist '(:create-file yes)
+            (expect (org-roam-gt-capture--check-create-file existing)
+                    :to-throw 'user-error))
+        (delete-file existing))))
+
+  (it "accepts :create-file no when the file exists"
+    (let ((existing (make-temp-file "orgt-existing-" nil ".org")))
+      (unwind-protect
+          (org-roam-gt-test-with-capture-plist '(:create-file no)
+            (expect (org-roam-gt-capture--check-create-file existing) :not :to-throw))
+        (delete-file existing))))
+
+  (it "rejects :create-file no when the file does not exist"
+    (let ((missing (concat (make-temp-name "/tmp/orgt-missing-") ".org")))
+      (org-roam-gt-test-with-capture-plist '(:create-file no)
+        (expect (org-roam-gt-capture--check-create-file missing)
+                :to-throw 'user-error))))
+
+  (it "with nil file only validates the value"
+    (org-roam-gt-test-with-capture-plist '(:create-file yes)
+      (expect (org-roam-gt-capture--check-create-file nil) :not :to-throw))
+    (org-roam-gt-test-with-capture-plist '(:create-file no)
+      (expect (org-roam-gt-capture--check-create-file nil) :not :to-throw))))
+
 ;;; test-org-roam-gt-capture.el ends here

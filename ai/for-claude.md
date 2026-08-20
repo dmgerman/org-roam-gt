@@ -13,6 +13,22 @@ patch org-roam source files. Two independent features:
    `org-roam-capture--setup-target-location`. All other capture machinery
    (template variable, entry points, chrome-server) is unchanged.
 
+3. **Template body loaded from a file** — `(file "PATH")` anywhere a template
+   body or `file+head*` head string is expected. Resolved relative to
+   `org-roam-directory`; installed as `:filter-args` advice on
+   `org-roam-capture--fill-template`.
+
+4. **`:create-file yes/no` template property** — asserts the template's intent
+   about file creation. `yes` → file must not exist; `no` → file must exist;
+   unset → no constraint. Checked before dispatch for file* targets, and
+   inside dispatch (after node lookup) for node* targets.
+
+5. **Fix for plain-template placement bug** — installs `:around` advice on
+   `org-roam-capture--adjust-point-for-capture-type` to correct upstream
+   org-roam's double-advance for plain templates positioned at a heading
+   without `:prepend`. See
+   `ai/org-roam_bug_org-roam-capture--adjust-point-for-capture-type.org`.
+
 ## File layout
 
 ```
@@ -86,6 +102,48 @@ All six are handled in `org-roam-gt-capture--dispatch` via `pcase`.
   instead of looked up by ID or title
 - Same OLP, `:tree-type`, and `:time-prompt` semantics
 
+## Template-body / `:create-file` extensions
+
+Both are installed by `org-roam-gt-capture--enable` alongside the target-type
+dispatch, and removed by `--disable`.
+
+### `(file "PATH")` in the template body
+
+- `:filter-args` advice on `org-roam-capture--fill-template`.
+- Matches `((file PATH) . REST)` in the argument list; replaces PATH with the
+  file's contents and passes REST through unchanged.
+- PATH resolves via `expand-file-name` against `org-roam-directory` (or
+  `default-directory` if the former is unset). Absolute paths pass through.
+- Missing/unreadable file → `user-error`.
+- The resulting string is then subject to normal `${var}` template expansion by
+  the original `--fill-template`.
+
+### `:create-file` guard
+
+- `:before` advice on `org-roam-capture--setup-target-location` runs the value
+  validation for every template and, for file* targets whose path is a string,
+  checks the resolved destination via `org-roam-capture--target-truepath` and
+  `org-roam-capture--new-file-p`.
+- Each node* setup function calls `org-roam-gt-capture--check-create-file` on
+  the resolved node's file (via `--position-at-node`), so nodefunc* targets
+  that return a not-yet-existent node are guarded too.
+- `:create-file` is read via `org-capture-get`, not `org-roam-capture--get` —
+  no mutation of `org-roam-capture--template-keywords`, so unknown to org-roam
+  and simply travels through as a plain capture-template property.
+
+## Plain-template placement fix
+
+`:around` advice on `org-roam-capture--adjust-point-for-capture-type` short-
+circuits the single buggy combination: `:type` is `plain`, `pos != 1`
+(heading-at-point), `:prepend` unset, and `(org-at-heading-p)`. In that case
+the advice returns `(point)` immediately, leaving point on the heading so
+`org-capture-place-plain-text` performs correct placement. Every other case
+delegates to `orig-fn`.
+
+The bug is a two-liner in upstream org-roam; file an upstream PR when
+convenient. Full report in
+`ai/org-roam_bug_org-roam-capture--adjust-point-for-capture-type.org`.
+
 ## Key helper functions
 
 | Function | Purpose |
@@ -95,6 +153,10 @@ All six are handled in `org-roam-gt-capture--dispatch` via `pcase`.
 | `org-roam-gt-capture-find-or-create-olp` | Traverses/creates a full OLP, returns marker |
 | `org-roam-gt-capture--find-node` | ID-or-title lookup with interactive fallback |
 | `org-roam-gt-capture--validate-node` | Signals `user-error` if node is nil or incomplete |
+| `org-roam-gt-capture--resolve-nodefunc` | Extracted from setup functions: validates FN, calls it, returns node |
+| `org-roam-gt-capture--position-at-node` | Common preamble for every node setup: validate, check `:create-file`, set buffer, widen, goto node point |
+| `org-roam-gt-capture--check-create-file` | Applies `:create-file` rules to a given file |
+| `org-roam-gt-capture--read-template-file` | Reads a template file for `(file "PATH")` resolution |
 
 ## Where templates are defined (user config)
 
@@ -153,16 +215,20 @@ dirs (using the same arch-detection loop as other modules). It also sets
 `load-prefer-newer` so a stale `.elc` cannot shadow current sources — the
 `make clean` target removes them entirely if that shadowing is suspected.
 
-Two categories of tests:
+Three categories of tests:
 
-- **Unit tests** exercise the heading/OLP finders and the dispatch advice
-  directly.
+- **Unit tests** exercise the heading/OLP finders, the dispatch advice, the
+  `(file "PATH")` filter, and the `:create-file` guard directly.
 - **End-to-end capture tests** drive `org-roam-capture` against a temp-file
   fixture with mocked node lookups (no live org-roam DB needed) and assert
   the inserted sentinel lands under the expected heading.  These guard
   against a double-advance bug in
   `org-roam-capture--adjust-point-for-capture-type` × `org-capture-place-plain-text`
-  that used to push non-`:prepend` `plain` templates into a sibling subtree.
+  that used to push non-`:prepend` `plain` templates into a sibling subtree —
+  the module's `--adjust-point-dispatch` advice is what keeps them passing.
+- **Template-body / `:create-file` tests** verify the two extensions in
+  isolation: `(file "PATH")` resolution against `tests/roam-files/`, and each
+  arm of the `:create-file` rule against a `let`-bound `org-capture-plist`.
 
 ## MELPA submission
 
