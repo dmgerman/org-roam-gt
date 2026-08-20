@@ -77,7 +77,7 @@ Binds `fixture-file' in BODY.  Cleans up the file and its buffer."
          (progn
            (with-temp-file fixture-file (insert ,fixture))
            ,@body)
-       (when-let ((buf (find-buffer-visiting fixture-file)))
+       (when-let* ((buf (find-buffer-visiting fixture-file)))
          (with-current-buffer buf (set-buffer-modified-p nil))
          (kill-buffer buf))
        (ignore-errors (delete-file fixture-file)))))
