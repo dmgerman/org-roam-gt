@@ -11,7 +11,13 @@
 #                         (both are committed artifacts, not cleaned).
 #                         Dependency-gated on readme.org's mtime, so a
 #                         stale info cannot slip into a commit.
-#   make check         — compile + lint + checkdoc + check-declare + info
+#   make check         — compile + lint + checkdoc + check-declare +
+#                         test + info
+#   make check-ci      — iterate `make check' over every Emacs in
+#                         $(CI_EMACS_LIST) (emacs-plus@30 and @31,
+#                         matching the GitHub Actions matrix; run
+#                         before pushing).  Errors out when either
+#                         binary is absent.
 #   make clean         — remove every *.elc file
 #
 # Override the Emacs binary by passing EMACS=path/to/emacs.
@@ -29,12 +35,13 @@ EL_FILES = org-roam-gt-capture.el \
 ELPA_DIR = .elpa
 
 # Dependencies installed into the project-local ELPA before lint/compile.
-# `org-roam' is the runtime dependency declared in org-roam-gt.el's
-# Package-Requires.  `transient' is used by org-roam-gt-transient.el but
-# is bundled with the Emacs versions we support (Package-Requires floor
-# is 30.1), so no install is needed.  `package-lint' and `buttercup' are
-# the dev tooling.
-DEPS = org-roam package-lint buttercup
+# `org' is pinned to the floor declared in Package-Requires (9.8+), which
+# is newer than the version bundled with Emacs 30.1 (9.7.11) — installing
+# from GNU ELPA ensures tests and compile see the version end-users get.
+# `org-roam' is the other runtime dependency.  `transient' is used by
+# org-roam-gt-transient.el but is bundled with every supported Emacs, so
+# no install is needed.  `package-lint' and `buttercup' are dev tooling.
+DEPS = org org-roam package-lint buttercup
 
 # Common Emacs invocation header: project-local package-user-dir, MELPA and
 # GNU/nongnu-ELPA in package-archives, package-initialize so installed
@@ -46,7 +53,7 @@ EMACS_BATCH = $(EMACS) -Q --batch \
   --eval "(add-to-list 'package-archives '(\"nongnu\" . \"https://elpa.nongnu.org/nongnu/\"))" \
   --eval "(package-initialize)"
 
-.PHONY: default test lint checkdoc check-declare compile clean check help info
+.PHONY: default test lint checkdoc check-declare compile clean check check-ci help info
 
 # Default target: byte-compile and regenerate the info manual if
 # readme.org changed.  Info regeneration is mtime-gated -- if readme.org
@@ -61,7 +68,9 @@ $(ELPA_DIR):
 $(ELPA_DIR)/.installed: | $(ELPA_DIR)
 	$(EMACS_BATCH) \
 	  --eval "(unless package-archive-contents (package-refresh-contents))" \
-	  $(foreach pkg,$(DEPS),--eval "(unless (package-installed-p '$(pkg)) (package-install '$(pkg)))")
+	  --eval "(setq package-install-upgrade-built-in t)" \
+	  --eval "(package-install 'org)" \
+	  $(foreach pkg,$(filter-out org,$(DEPS)),--eval "(unless (package-installed-p '$(pkg)) (package-install '$(pkg)))")
 	@touch $@
 
 # Run the buttercup test suite (the existing test entry point).  Loads
@@ -162,7 +171,36 @@ $(INFO_FILE): readme.org
 $(INFO_DIR): $(INFO_FILE)
 	install-info --info-file=$(INFO_FILE) --dir-file=$(INFO_DIR)
 
-check: compile lint checkdoc check-declare info
+check: compile lint checkdoc check-declare test info
+
+# CI-mirror check.  EMACS_30 / EMACS_31 are the Package-Requires floor
+# and the latest release, matching the GitHub Actions matrix in
+# .github/workflows/package-lint.yml.  Both are mandatory: a skipped
+# version reports a pass that CI does not agree with, so `check-ci'
+# refuses to run until both are installed.  The default `make check'
+# runs under whatever `emacs' resolves to on PATH and cannot prove
+# multi-version compatibility.
+EMACS_30 ?= /opt/homebrew/opt/emacs-plus@30/bin/emacs
+EMACS_31 ?= /opt/homebrew/opt/emacs-plus@31/bin/emacs
+CI_EMACS_LIST ?= $(EMACS_30) $(EMACS_31)
+
+# Every binary is verified before the first one runs, so a missing
+# install is reported up front rather than after a full pass.
+check-ci:
+	@missing=""; \
+	for e in $(CI_EMACS_LIST); do \
+	  [ -x "$$e" ] || missing="$$missing $$e"; \
+	done; \
+	if [ -n "$$missing" ]; then \
+	  echo "check-ci: required Emacs not executable:$$missing"; \
+	  echo "Install both:  brew install emacs-plus@30 emacs-plus@31"; \
+	  echo "Or override:   make check-ci CI_EMACS_LIST=\"/path/to/emacs ...\""; \
+	  exit 1; \
+	fi
+	@for e in $(CI_EMACS_LIST); do \
+	  echo "==> check-ci under $$e ($$($$e --version | head -1))"; \
+	  $(MAKE) EMACS=$$e check || exit 1; \
+	done
 
 help:
 	@echo "Targets:"
@@ -173,5 +211,6 @@ help:
 	@echo "  make check-declare  verify declare-function file arguments"
 	@echo "  make compile  byte-compile"
 	@echo "  make info     rebuild org-roam-gt.info and dir from readme.org"
-	@echo "  make check    compile + lint + checkdoc + check-declare + info"
+	@echo "  make check    compile + lint + checkdoc + check-declare + test + info"
+	@echo "  make check-ci iterate check over each Emacs in CI_EMACS_LIST"
 	@echo "  make clean    remove *.elc"

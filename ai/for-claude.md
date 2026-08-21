@@ -303,7 +303,9 @@ instructions in `melpa/README.md`.
 Package headers (`Package-Requires`, `URL`, `Maintainer`, `SPDX-License-Identifier`,
 end-of-file markers) are already MELPA-compliant.  Every commit is CI-checked
 via `.github/workflows/package-lint.yml` on Emacs 30.1 (matches the
-`emacs "30.1"` Package-Requires floor).
+`emacs "30.1"` Package-Requires floor), 31.1 (latest release), and
+snapshot (allow-failure). `make check-ci` iterates the same list
+locally.
 
 The `transient` dependency is NOT declared in `Package-Requires`
 because `emacs "30.1"` guarantees it (bundled since Emacs 28.1).

@@ -418,7 +418,7 @@ make clean        # remove *.elc
 
 The GitHub Actions workflow at ~.github/workflows/package-lint.yml~
 runs ~make lint~, ~make checkdoc~, ~make check-declare~, and ~make test~
-on Emacs 30.1.
+on Emacs 30.1, 31.1, and snapshot.
 
 ** MELPA submission
 

@@ -21,6 +21,10 @@ jobs:
       matrix:
         emacs_version:
           - '30.1'  # Package-Requires floor
+          - '31.1'  # latest release
+        include:
+          - emacs_version: 'snapshot'
+            allow_failure: true
     steps:
       - uses: actions/checkout@v4
 
@@ -31,12 +35,16 @@ jobs:
 
       - name: Run package-lint via make
         run: make lint
+        continue-on-error: ${{ matrix.allow_failure == true }}
 
       - name: Run checkdoc via make
         run: make checkdoc
+        continue-on-error: ${{ matrix.allow_failure == true }}
 
       - name: Run check-declare via make
         run: make check-declare
+        continue-on-error: ${{ matrix.allow_failure == true }}
 
       - name: Run buttercup tests via make
         run: make test
+        continue-on-error: ${{ matrix.allow_failure == true }}

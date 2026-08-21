@@ -18,7 +18,7 @@ It does **not** patch org-roam source files.
 | `org-roam-gt.info`, `dir` | Info manual generated from `readme.org` via `make info` (committed artifacts consumed by ELPA activation) |
 | `LICENSE` | GPL-3.0-or-later |
 | `melpa/` | MELPA recipe (`org-roam-gt`) and submission instructions |
-| `.github/workflows/package-lint.yml` | CI: lint + checkdoc + check-declare + test on Emacs 30.1 |
+| `.github/workflows/package-lint.yml` | CI: lint + checkdoc + check-declare + test on Emacs 30.1, 31.1, snapshot (snapshot allow-failure) |
 | `readme.org` | User-facing documentation |
 | `ai/for-claude.md` | Full technical reference |
 
@@ -63,6 +63,20 @@ make clean         # remove *.elc
 
 Every target bootstraps its dependencies into a project-local `.elpa/` on
 first use — the user's package directory is never touched.
+
+## Test environment
+
+Tests run against **whichever org the current Emacs bundles** (plus
+`.elpa/` deps).  `tests/test-helper.el` deliberately does NOT add
+`~/.emacs.d/modules/org-mode/lisp` to `load-path`, even when that
+directory exists — silently preferring a developer's local org
+checkout over the bundled version once masked seven bundled-org bugs
+from local test runs while CI hit every one of them.
+
+Every test run prints an `emacs X.Y / org A.B.C` banner up front so
+environment drift is visible at a glance.  Before pushing, run
+`make check-ci` to force the same Emacs the GitHub Actions matrix
+pins (defaults to `emacs-plus@30`).
 
 See `ai/for-claude.md` for the full technical reference including all target
 type semantics, helper functions, and current template list.

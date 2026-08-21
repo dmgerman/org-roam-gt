@@ -23,10 +23,13 @@
     (when (file-directory-p expanded)
       (add-to-list 'load-path expanded))))
 
-;; Add org itself
-(let ((org-lisp (expand-file-name "~/.emacs.d/modules/org-mode/lisp")))
-  (when (file-directory-p org-lisp)
-    (add-to-list 'load-path org-lisp)))
+;; NOTE: intentionally NOT adding `~/.emacs.d/modules/org-mode/lisp' to
+;; `load-path' — silently preferring a developer's local org checkout over
+;; the version the environment provides masked bundled-org bugs from
+;; local test runs while CI hit them.  Tests must run against the org
+;; the current Emacs bundles (or whatever `.elpa/' pins), not against
+;; whichever version the developer happened to check out.  See
+;; CLAUDE.md's "Test environment" section.
 
 ;; In batch mode, add straight.el build directories for dependencies
 ;; (dash, emacsql, magit-section, etc.)
@@ -46,6 +49,13 @@
           (add-to-list 'load-path dir))))))
 
 (require 'org-roam-gt-capture)
+
+;; Print the exact Emacs + org versions that the test run will use.  A
+;; visible banner makes environment drift obvious in both local and CI
+;; logs — for example, "org 9.7.11" vs "org 9.8.4" was the source of a
+;; silent CI/local divergence that hid seven test failures for weeks.
+(require 'org)
+(message "test-env: emacs %s / org %s" emacs-version org-version)
 
 ;;; Test utilities
 
