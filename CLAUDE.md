@@ -17,7 +17,7 @@ It does **not** patch org-roam source files.
 | `Makefile` | `make`, `make test`, `make lint`, `make checkdoc`, `make check-declare`, `make check`, `make clean` |
 | `LICENSE` | GPL-3.0-or-later |
 | `melpa/` | MELPA recipe (`org-roam-gt`) and submission instructions |
-| `.github/workflows/package-lint.yml` | CI: lint + checkdoc + check-declare + test on Emacs 27.1/28.2/29.4/snapshot |
+| `.github/workflows/package-lint.yml` | CI: lint + checkdoc + check-declare + test on Emacs 30.1 |
 | `readme.org` | User-facing documentation |
 | `ai/for-claude.md` | Full technical reference |
 

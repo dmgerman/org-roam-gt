@@ -19,15 +19,8 @@ The `:files` directive selects the three elisp files that make up the
 package: `org-roam-gt.el`, `org-roam-gt-capture.el`, and
 `org-roam-gt-transient.el`.
 
-## Optional runtime dependency: transient
+## Opt-in speed-command menu
 
-`org-roam-gt-transient.el` uses the `transient` package for a
-speed-command menu.  `transient` is bundled with Emacs 28.1+; on
-Emacs 27.1 it must be installed separately (available on GNU ELPA and
-MELPA).  It is intentionally **not** declared in `Package-Requires`;
-it is loaded lazily via `(require 'transient nil t)`, and if
-unavailable the menu registration is skipped and the rest of the
-package continues to work.
-
-Users who want the menu should ensure `transient` is available and
-then `(require 'org-roam-gt-transient)`.
+`org-roam-gt-transient.el` provides a speed-command menu.  It is
+opt-in: users who want it do `(require 'org-roam-gt-transient)`;
+users who don't simply skip loading that file.

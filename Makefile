@@ -26,10 +26,11 @@ ELPA_DIR = .elpa
 
 # Dependencies installed into the project-local ELPA before lint/compile.
 # `org-roam' is the runtime dependency declared in org-roam-gt.el's
-# Package-Requires; `transient' is optional but used by
-# org-roam-gt-transient.el (bundled with Emacs 28+, installed from ELPA
-# for older Emacsen); `package-lint' and `buttercup' are the dev tooling.
-DEPS = org-roam transient package-lint buttercup
+# Package-Requires.  `transient' is used by org-roam-gt-transient.el but
+# is bundled with the Emacs versions we support (Package-Requires floor
+# is 30.1), so no install is needed.  `package-lint' and `buttercup' are
+# the dev tooling.
+DEPS = org-roam package-lint buttercup
 
 # Common Emacs invocation header: project-local package-user-dir, MELPA and
 # GNU/nongnu-ELPA in package-archives, package-initialize so installed

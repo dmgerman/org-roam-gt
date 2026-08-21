@@ -8,7 +8,7 @@
 ;; Keywords: outlines, hypermedia
 ;; URL: https://github.com/dmgerman/org-roam-gt
 ;; Version: 0.4
-;; Package-Requires: ((emacs "27.1") (org "9.5") (org-roam "2.2.2"))
+;; Package-Requires: ((emacs "30.1") (org "9.5") (org-roam "2.2.2"))
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;

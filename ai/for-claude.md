@@ -300,14 +300,15 @@ instructions in `melpa/README.md`.
 
 Package headers (`Package-Requires`, `URL`, `Maintainer`, `SPDX-License-Identifier`,
 end-of-file markers) are already MELPA-compliant.  Every commit is CI-checked
-via `.github/workflows/package-lint.yml` on Emacs 27.1, 28.2, 29.4, and
-snapshot.
+via `.github/workflows/package-lint.yml` on Emacs 30.1 (matches the
+`emacs "30.1"` Package-Requires floor).
 
-The `transient` dependency is intentionally NOT declared in
-`Package-Requires`; `org-roam-gt-transient.el` uses
-`(require 'transient nil t)` and skips registration if `transient` is
-absent.  Transient is bundled with Emacs 28.1+; on Emacs 27.1 users
-install it from ELPA/MELPA.  See `melpa/README.md` for rationale.
+The `transient` dependency is NOT declared in `Package-Requires`
+because `emacs "30.1"` guarantees it (bundled since Emacs 28.1).
+`org-roam-gt-transient.el` calls `(require 'transient)` directly.
+The menu itself is opt-in: users load the file via
+`(require 'org-roam-gt-transient)`.  See `melpa/README.md` for the
+loading pattern.
 
 ## Design constraints
 
