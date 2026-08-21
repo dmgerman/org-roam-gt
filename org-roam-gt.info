@@ -1,0 +1,571 @@
+This is org-roam-gt.info, produced by makeinfo version 7.3 from
+org-roam-gt.texi.
+
+INFO-DIR-SECTION Emacs
+START-INFO-DIR-ENTRY
+* org-roam-gt: (org-roam-gt). Faster node display and richer capture targets for org-roam.
+END-INFO-DIR-ENTRY
+
+
+File: org-roam-gt.info,  Node: Top,  Next: org-roam-gt,  Up: (dir)
+
+org-roam-gt
+***********
+
+* Menu:
+
+* org-roam-gt::
+
+-- The Detailed Node Listing --
+
+org-roam-gt
+
+* Installation::
+* Selectively disabling features::
+* New capture target types::
+* Template body loaded from a file::
+* create-file guard::
+* Speed commands::
+* Faster node search::
+* Development::
+* MELPA submission::
+
+Selectively disabling features
+
+* Speed command menu (opt-in)::
+* Hook-based extension API::
+
+New capture target types
+
+* (node TITLE-OR-ID)::
+* (nodefunc FUNCTION)::
+* (nodefunc+headline FUNCTION HEADLINE)::
+* (node+headline TITLE-OR-ID HEADLINE)::
+* ‘(node+olp TITLE-OR-ID "h1" "h2" ...)’: (node+olp TITLE-OR-ID "h1" "h2" ).
+* ‘(node+olp+datetree TITLE-OR-ID "h1" "h2" ...)’: (node+olp+datetree TITLE-OR-ID "h1" "h2" ).
+* ‘(nodefunc+olp+datetree FUNCTION "h1" "h2" ...)’: (nodefunc+olp+datetree FUNCTION "h1" "h2" ).
+
+
+File: org-roam-gt.info,  Node: org-roam-gt,  Prev: Top,  Up: Top
+
+1 org-roam-gt
+*************
+
+Org-roam is a powerful knowledge management system, but its defaults
+favour simplicity over scale.  As your node count grows into the
+thousands, ‘org-roam-node-find’ slows noticeably, the standard capture
+targets are limited to files and nodes — you cannot route a capture
+directly into a named heading or a computed destination such as today's
+daily note — and frequent operations like refile and capture have no
+built-in keyboard shortcuts.
+
+   ‘org-roam-gt’ addresses all three with a single minor mode:
+
+  1. *Faster node display* — replaces the string-based display template
+     with a function, which is significantly faster on large databases
+     and lets you control formatting in Lisp rather than a custom
+     mini-language.
+
+  2. *Richer capture targets* — six new ‘:target’ forms for
+     ‘org-roam-capture-templates’ that let you route captures to
+     computed nodes, named headings, arbitrary outline paths, and
+     datetree entries.  These cover the patterns that come up constantly
+     in a structured PKM workflow: "today's daily note, under the Log
+     section", "a specific project node, under Actions", "a fixed
+     reference file, two levels deep", "a journal entry under today's
+     date".  Two capture-template extensions complement the new targets:
+     ‘(file "PATH")’ loads a template body from a file, and
+     ‘:create-file yes/no’ makes the template's intent about file
+     creation explicit and enforced.  The up-front "Node:" prompt that
+     upstream ‘org-roam-capture’ always shows is skipped — templates
+     that target a fixed node never prompt at all, and those that need
+     one prompt only after you've picked the template.  A fix for an
+     upstream org-roam bug that mis-placed plain templates positioned at
+     a heading is also installed.
+
+  3. *Speed command menu* — a ‘transient’ prefix bound to ‘m’ in
+     ‘org-speed-commands’, giving one-keystroke access to capture,
+     refile, find, and extract-subtree from any org heading.
+
+* Menu:
+
+* Installation::
+* Selectively disabling features::
+* New capture target types::
+* Template body loaded from a file::
+* create-file guard::
+* Speed commands::
+* Faster node search::
+* Development::
+* MELPA submission::
+
+
+File: org-roam-gt.info,  Node: Installation,  Next: Selectively disabling features,  Up: org-roam-gt
+
+1.1 Installation
+================
+
+Once accepted by MELPA (https://melpa.org/):
+
+     (use-package org-roam-gt
+       :ensure t
+       :config
+       ;; Optional: load the speed-command menu (transient is bundled with Emacs)
+       (require 'org-roam-gt-transient)
+       (org-roam-gt-mode 1))
+
+   Or from a local checkout:
+
+     (use-package org-roam-gt
+       :load-path "~/.emacs.d/modules/org-roam-gt"
+       :config
+       (require 'org-roam-gt-transient)
+       (org-roam-gt-mode 1))
+
+   To disable, call ‘(org-roam-gt-mode -1)’.  All features are
+controlled by the mode and restore their previous state on disable.
+
+   The menu uses ‘transient’, which is bundled with Emacs — nothing
+extra to install.  Just ‘(require 'org-roam-gt-transient)’ before
+enabling the mode.
+
+
+File: org-roam-gt.info,  Node: Selectively disabling features,  Next: New capture target types,  Prev: Installation,  Up: org-roam-gt
+
+1.2 Selectively disabling features
+==================================
+
+All three features are enabled by default.  Each can be turned off
+independently before enabling the mode:
+
+     ;; Disable the faster node display function (keep org-roam's default template)
+     (setq org-roam-gt-enable-node-display-function nil)
+
+     ;; Disable the extended capture targets
+     (setq org-roam-gt-enable-capture-targets nil)
+
+     (org-roam-gt-mode 1)
+
+   If the mode is already running, disable it, change the variable, then
+re-enable:
+
+     (org-roam-gt-mode -1)
+     (setq org-roam-gt-enable-node-display-function nil)
+     (org-roam-gt-mode 1)
+
+* Menu:
+
+* Speed command menu (opt-in)::
+* Hook-based extension API::
+
+
+File: org-roam-gt.info,  Node: Speed command menu (opt-in),  Next: Hook-based extension API,  Up: Selectively disabling features
+
+1.2.1 Speed command menu (opt-in)
+---------------------------------
+
+The speed command menu is self-contained in ‘org-roam-gt-transient.el’.
+It uses ‘org-roam-gt-enable-hook’ and ‘org-roam-gt-disable-hook’ to
+register and de-register itself with the mode.
+
+   To enable the menu, require it _before_ enabling the mode:
+
+     (require 'org-roam-gt-transient)   ; registers menu on the hooks
+     (org-roam-gt-mode 1)               ; fires org-roam-gt-enable-hook, installs menu
+
+   To disable the menu entirely, simply do not load
+‘org-roam-gt-transient.el’ — the menu key (‘m’) will not be installed.
+
+   If you want to remove the menu after the mode is already running:
+
+     (remove-hook 'org-roam-gt-enable-hook  #'org-roam-gt-transient--enable)
+     (remove-hook 'org-roam-gt-disable-hook #'org-roam-gt-transient--disable)
+     (org-roam-gt-transient--disable)   ; clean up the current session
+
+
+File: org-roam-gt.info,  Node: Hook-based extension API,  Prev: Speed command menu (opt-in),  Up: Selectively disabling features
+
+1.2.2 Hook-based extension API
+------------------------------
+
+‘org-roam-gt-mode’ exposes two hooks for extensions that want to
+activate and deactivate together with the mode:
+
+Hook                         Fired when
+-------------------------------------------------------------------
+‘org-roam-gt-enable-hook’    Mode is being enabled (‘:global t’)
+‘org-roam-gt-disable-hook’   Mode is being disabled
+
+   Add your own functions to register custom behaviour:
+
+     (defun my-roam-ext--enable () ...)
+     (defun my-roam-ext--disable () ...)
+     (add-hook 'org-roam-gt-enable-hook  #'my-roam-ext--enable)
+     (add-hook 'org-roam-gt-disable-hook #'my-roam-ext--disable)
+
+
+File: org-roam-gt.info,  Node: New capture target types,  Next: Template body loaded from a file,  Prev: Selectively disabling features,  Up: org-roam-gt
+
+1.3 New capture target types
+============================
+
+The six new target types work alongside all existing ones.  Your current
+templates need no changes — you simply add new templates that use the
+new target types.
+
+   *Standard org-roam target types* (always available):
+
+Target type       Description
+----------------------------------------------------------------------
+‘file’            Capture to a specific file
+‘file+head’       Capture to a file; create it with a header if new
+‘file+olp’        Capture to a specific outline path within a file
+‘file+head+olp’   Combination of ‘file+head’ and ‘file+olp’
+‘file+datetree’   Capture into a date-tree within a file
+‘node’            Always prompts the user to find or create a node
+
+   The limitation of ‘node’ is that it always prompts — you cannot point
+it at a fixed destination or a computed one.  The new target types
+address this:
+
+   *New target types added by ‘org-roam-gt-mode’*:
+
+Target type               Destination node            Position within node
+------------------------------------------------------------------------------------------
+‘node’                    Fixed ID/title, or prompt   Node entry point
+‘nodefunc’                Returned by a function      Node entry point
+‘nodefunc+headline’       Returned by a function      Named heading (created if absent)
+‘node+headline’           Fixed ID/title, or prompt   Named heading (created if absent)
+‘node+olp’                Fixed ID/title, or prompt   Outline path (created if absent)
+‘node+olp+datetree’       Fixed ID/title, or prompt   Datetree entry under optional OLP
+‘nodefunc+olp+datetree’   Returned by a function      Datetree entry under optional OLP
+
+* Menu:
+
+* (node TITLE-OR-ID)::
+* (nodefunc FUNCTION)::
+* (nodefunc+headline FUNCTION HEADLINE)::
+* (node+headline TITLE-OR-ID HEADLINE)::
+* ‘(node+olp TITLE-OR-ID "h1" "h2" ...)’: (node+olp TITLE-OR-ID "h1" "h2" ).
+* ‘(node+olp+datetree TITLE-OR-ID "h1" "h2" ...)’: (node+olp+datetree TITLE-OR-ID "h1" "h2" ).
+* ‘(nodefunc+olp+datetree FUNCTION "h1" "h2" ...)’: (nodefunc+olp+datetree FUNCTION "h1" "h2" ).
+
+
+File: org-roam-gt.info,  Node: (node TITLE-OR-ID),  Next: (nodefunc FUNCTION),  Up: New capture target types
+
+1.3.1 ‘(node TITLE-OR-ID)’
+--------------------------
+
+The standard ‘node’ target always prompts, even when you know the
+destination in advance.  With ‘org-roam-gt-mode’, passing a string goes
+directly to that node by ID or title without prompting.  Passing ‘nil’
+still prompts, just as the standard ‘node’ does.
+
+     ;; Go directly to a specific node — no prompt
+     '("f" "Farrington tip" entry
+       "** %?\n"
+       :target (node "mike-farrington-tips")
+       :unnarrowed t)
+
+     ;; Prompt the user to pick any node
+     '("n" "Note" plain
+       "%?"
+       :target (node nil)
+       :unnarrowed t)
+
+
+File: org-roam-gt.info,  Node: (nodefunc FUNCTION),  Next: (nodefunc+headline FUNCTION HEADLINE),  Prev: (node TITLE-OR-ID),  Up: New capture target types
+
+1.3.2 ‘(nodefunc FUNCTION)’
+---------------------------
+
+FUNCTION is called with no arguments and must return an ‘org-roam-node’.
+Capture is positioned at the node's entry point.
+
+   Use this when the destination node is computed at capture time — for
+example, today's daily note.
+
+     '("+" "Daily log" plain
+       "*** PROGRESS %?\n\n%a\n"
+       :target (nodefunc my-daily-node-function)
+       :unnarrowed t)
+
+
+File: org-roam-gt.info,  Node: (nodefunc+headline FUNCTION HEADLINE),  Next: (node+headline TITLE-OR-ID HEADLINE),  Prev: (nodefunc FUNCTION),  Up: New capture target types
+
+1.3.3 ‘(nodefunc+headline FUNCTION HEADLINE)’
+---------------------------------------------
+
+Like ‘nodefunc’, but positions inside a named heading within the node.
+The heading is created as a child if it does not exist.
+
+     '("+" "Daily log" plain
+       "*** PROGRESS %?\n\n%a\n"
+       :target (nodefunc+headline my-daily-node-function "Log")
+       :unnarrowed t)
+
+
+File: org-roam-gt.info,  Node: (node+headline TITLE-OR-ID HEADLINE),  Next: (node+olp TITLE-OR-ID "h1" "h2" ),  Prev: (nodefunc+headline FUNCTION HEADLINE),  Up: New capture target types
+
+1.3.4 ‘(node+headline TITLE-OR-ID HEADLINE)’
+--------------------------------------------
+
+Looks up a node by its ID or title, then positions inside a named
+heading.  The heading is created as a child if absent.
+
+   If TITLE-OR-ID is ‘nil’, the user is prompted to choose a node
+interactively.
+
+     ;; Fixed destination node, fixed heading
+     '("c" "Cooking recipe" entry
+       "** SOMEDAY %?\n\n%(my-web-link)\n\n"
+       :target (node+headline "area-cooking-20240921-012344" "Recipes")
+       :unnarrowed t)
+
+     ;; User picks the node, fixed heading
+     '("T" "Todo" entry
+       "** TODO %?\n%T\n\n%i\n"
+       :target (node+headline nil "Actions")
+       :unnarrowed t)
+
+     ;; Prompt is narrowed by :filter-fn to nodes whose TODO keyword is PROJ or AREA
+     '("E" "Email under a project" entry
+       "** TODO %?\n"
+       :target (node+headline nil "Emails")
+       :filter-fn (lambda (n) (member (org-roam-node-todo n) '("PROJ" "AREA")))
+       :unnarrowed t)
+
+   The standard org-capture template property ‘:filter-fn’ works with
+every prompting target (‘node’ nil, ‘node+headline’ nil, ‘node+olp’ nil,
+‘node+olp+datetree’ nil).  It receives an ‘org-roam-node’ and returns
+non-nil to keep it in the candidate pool.
+
+
+File: org-roam-gt.info,  Node: (node+olp TITLE-OR-ID "h1" "h2" ),  Next: (node+olp+datetree TITLE-OR-ID "h1" "h2" ),  Prev: (node+headline TITLE-OR-ID HEADLINE),  Up: New capture target types
+
+1.3.5 ‘(node+olp TITLE-OR-ID "h1" "h2" ...)’
+--------------------------------------------
+
+Like ‘node+headline’ but navigates (or creates) an arbitrary outline
+path.  Each heading in the path is found or created in sequence.
+
+   If TITLE-OR-ID is ‘nil’, the user is prompted interactively.  Heading
+strings may contain ‘${var}’ template variables.
+
+     '("x" "Example" entry
+       "** %?\n"
+       :target (node+olp "my-node-id" "Section" "Subsection")
+       :unnarrowed t)
+
+
+File: org-roam-gt.info,  Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" ),  Next: (nodefunc+olp+datetree FUNCTION "h1" "h2" ),  Prev: (node+olp TITLE-OR-ID "h1" "h2" ),  Up: New capture target types
+
+1.3.6 ‘(node+olp+datetree TITLE-OR-ID "h1" "h2" ...)’
+-----------------------------------------------------
+
+Positions capture at an org datetree entry beneath the node.  The OLP
+headings are optional: pass none to build the datetree directly under
+the node, or pass one or more to navigate (or create) intermediate
+headings first.
+
+   The datetree is built by ‘org-datetree-find-*-create’ per the
+‘:tree-type’ template property (default ‘day’; other values: ‘week’,
+‘month’, a list grouping like ‘(year month day)’, or a function that
+returns such a list).  Setting ‘:time-prompt t’ asks for the date
+interactively; otherwise the current date is used (respecting
+‘org-overriding-default-time’).
+
+     ;; Daily log entry under Journal / YYYY / YYYY-MM / YYYY-MM-DD
+     '("j" "Journal" plain
+       "- %U %?"
+       :target (node+olp+datetree "my-journal-id" "Log")
+       :unnarrowed t)
+
+     ;; Weekly retrospective, ask for date at capture time
+     '("r" "Weekly retro" entry
+       "** %?\n"
+       :target (node+olp+datetree "my-journal-id")
+       :tree-type week
+       :time-prompt t
+       :unnarrowed t)
+
+
+File: org-roam-gt.info,  Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" ),  Prev: (node+olp+datetree TITLE-OR-ID "h1" "h2" ),  Up: New capture target types
+
+1.3.7 ‘(nodefunc+olp+datetree FUNCTION "h1" "h2" ...)’
+------------------------------------------------------
+
+Like ‘node+olp+datetree’, but the destination node is computed by
+FUNCTION at capture time instead of looked up by ID or title.  All other
+semantics (optional OLP, ‘:tree-type’, ‘:time-prompt’) are identical.
+
+     '("d" "Daily note" plain
+       "- %?"
+       :target (nodefunc+olp+datetree my-daily-node-function "Log")
+       :unnarrowed t)
+
+
+File: org-roam-gt.info,  Node: Template body loaded from a file,  Next: create-file guard,  Prev: New capture target types,  Up: org-roam-gt
+
+1.4 Template body loaded from a file
+====================================
+
+Anywhere a template body (or the head string of ‘file+head’ /
+‘file+head+olp’) is expected, ‘(file "PATH")’ substitutes the contents
+of PATH.  Relative paths are resolved against ‘org-roam-directory’;
+absolute paths pass through.  A missing file raises a user error at
+capture time.
+
+   The file's contents are subject to the same ‘${var}’ template
+expansion as an inline body — put ‘${title}’ or ‘${slug}’ inside the
+file and they are filled at capture time.
+
+     '("P" "New project file" plain
+       "%?"
+       :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
+                          (file "templates/project.txt"))
+       :unnarrowed t)
+
+   Where ‘templates/project.txt’ lives under ‘org-roam-directory’ and
+looks like:
+
+     :PROPERTIES:
+     :ID: ${slug}
+     :END:
+     #+title: ${title}
+     #+filetags: :project:
+
+
+File: org-roam-gt.info,  Node: create-file guard,  Next: Speed commands,  Prev: Template body loaded from a file,  Up: org-roam-gt
+
+1.5 ‘:create-file’ guard
+========================
+
+An optional template property that asserts the template's intent about
+file creation.  Only two values are legal; any other value is rejected
+at capture time.
+
+Value   Rule
+-----------------------------------------------------------------------
+‘yes’   Destination file must *not* already exist; abort if it does.
+‘no’    Destination file must already exist; abort if it does not.
+unset   No constraint (default org-roam behaviour).
+
+   Applies to any target where a destination file can be identified —
+file* targets before dispatch, node* targets after the node has been
+resolved.  For node targets that always land on an existing node (e.g.
+‘node’, ‘node+headline’, ‘node+olp’ with a known ID), the file already
+exists, so ‘no’ is trivially satisfied and ‘yes’ always errors.
+Meaningful primarily on file* targets and on ‘nodefunc*’ templates whose
+function may return a not-yet-existent node.
+
+     ;; This template must create a fresh file each time
+     '("P" "New project" plain "%?"
+       :target (file+head "${slug}.org" (file "templates/project.txt"))
+       :create-file yes
+       :unnarrowed t)
+
+     ;; This template must land in an already-existing file
+     '("l" "Log entry" plain "- %U %?"
+       :target (node+headline "my-daily-id" "Log")
+       :create-file no
+       :unnarrowed t)
+
+
+File: org-roam-gt.info,  Node: Speed commands,  Next: Faster node search,  Prev: create-file guard,  Up: org-roam-gt
+
+1.6 Speed commands
+==================
+
+When ‘org-roam-gt-transient.el’ is loaded (see the opt-in section
+above), the key ‘m’ is added to ‘org-speed-commands’.  It opens a
+‘transient’ prefix with shortcuts for common org-roam operations:
+
+Key   Action
+-----------------------------------------
+‘c’   Capture (‘org-roam-capture’)
+‘f’   Find node (‘org-roam-node-find’)
+‘r’   Refile to a node
+‘x’   Extract subtree
+
+   Speed commands are available when point is at the beginning of a
+heading.
+
+
+File: org-roam-gt.info,  Node: Faster node search,  Next: Development,  Prev: Speed commands,  Up: org-roam-gt
+
+1.7 Faster node search
+======================
+
+When you invoke ‘org-roam-node-find’, Emacs has to build the list of
+every node in your database before you can start typing.  On a large
+database this pause is long enough to interrupt your flow.  The delay
+comes from how each node's display line is constructed: org-roam uses a
+format string with ‘%’-placeholders, and assembling that string for
+every node on every invocation is slow.
+
+   ‘org-roam-gt’ replaces the format string with a plain Lisp function
+that produces the same display but runs faster, which shortens the pause
+noticeably.  The completion interface looks and behaves identically.
+The original template is restored if you disable the mode.
+
+
+File: org-roam-gt.info,  Node: Development,  Next: MELPA submission,  Prev: Faster node search,  Up: org-roam-gt
+
+1.8 Development
+===============
+
+The repository ships a ‘Makefile’ that drives every dev workflow via a
+project-local ‘.elpa/’ (nothing touches your user package directory):
+
+     make              # byte-compile
+     make test         # run the buttercup test suite
+     make lint         # package-lint
+     make checkdoc     # checkdoc (errors on any warning)
+     make check-declare  # verify declare-function arguments
+     make check        # compile + lint + checkdoc + check-declare
+     make clean        # remove *.elc
+
+   The GitHub Actions workflow at ‘.github/workflows/package-lint.yml’
+runs ‘make lint’, ‘make checkdoc’, ‘make check-declare’, and ‘make test’
+on Emacs 30.1.
+
+
+File: org-roam-gt.info,  Node: MELPA submission,  Prev: Development,  Up: org-roam-gt
+
+1.9 MELPA submission
+====================
+
+The MELPA recipe lives at ‘melpa/org-roam-gt’; instructions for
+submitting it upstream are in ‘melpa/README.md’.
+
+
+Tag Table:
+Node: Top238
+Node: org-roam-gt1157
+Node: Installation3524
+Node: Selectively disabling features4419
+Node: Speed command menu (opt-in)5268
+Node: Hook-based extension API6321
+Node: New capture target types7140
+Node: (node TITLE-OR-ID)9489
+Node: (nodefunc FUNCTION)10233
+Node: (nodefunc+headline FUNCTION HEADLINE)10817
+Node: (node+headline TITLE-OR-ID HEADLINE)11371
+Node: (node+olp TITLE-OR-ID "h1" "h2" )12826
+Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )13515
+Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )14869
+Node: Template body loaded from a file15501
+Node: create-file guard16585
+Node: Speed commands18114
+Node: Faster node search18765
+Node: Development19600
+Node: MELPA submission20434
+
+End Tag Table
+
+
+Local Variables:
+coding: utf-8
+Info-documentlanguage: en
+End:
