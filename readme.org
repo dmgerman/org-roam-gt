@@ -1,3 +1,10 @@
+#+title: org-roam-gt
+#+author: Daniel M. German
+#+texinfo_filename: org-roam-gt.info
+#+texinfo_dir_category: Emacs
+#+texinfo_dir_title: org-roam-gt: (org-roam-gt).
+#+texinfo_dir_desc: Faster node display and richer capture targets for org-roam.
+
 * org-roam-gt
 
 Org-roam is a powerful knowledge management system, but its defaults

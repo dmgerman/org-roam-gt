@@ -44,6 +44,8 @@ modules/org-roam-gt/
 ├── org-roam-gt-capture.el    # new target types + template-body / :create-file
 ├── org-roam-gt-transient.el  # opt-in speed-command menu (transient)
 ├── readme.org                # user-facing documentation
+├── org-roam-gt.info          # info manual generated from readme.org
+├── dir                       # info directory entry for the manual
 ├── ai/
 │   ├── for-claude.md         # this file
 │   └── CLAUDE.md → ../CLAUDE.md  (symlink, or just CLAUDE.md at root)

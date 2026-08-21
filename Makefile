@@ -1,13 +1,17 @@
 # Top-level Makefile for org-roam-gt.
 #
 # Targets:
-#   make               — compile (default)
+#   make               — compile + info (default)
 #   make test          — run the buttercup test suite
 #   make lint          — package-lint every org-roam-gt*.el file
 #   make checkdoc      — checkdoc every org-roam-gt*.el file (errors on any warning)
 #   make check-declare — verify declare-function file arguments
 #   make compile       — byte-compile every org-roam-gt*.el file (errors on warning)
-#   make check         — compile + lint + checkdoc + check-declare
+#   make info          — rebuild org-roam-gt.info and dir from readme.org
+#                         (both are committed artifacts, not cleaned).
+#                         Dependency-gated on readme.org's mtime, so a
+#                         stale info cannot slip into a commit.
+#   make check         — compile + lint + checkdoc + check-declare + info
 #   make clean         — remove every *.elc file
 #
 # Override the Emacs binary by passing EMACS=path/to/emacs.
@@ -42,11 +46,14 @@ EMACS_BATCH = $(EMACS) -Q --batch \
   --eval "(add-to-list 'package-archives '(\"nongnu\" . \"https://elpa.nongnu.org/nongnu/\"))" \
   --eval "(package-initialize)"
 
-.PHONY: default test lint checkdoc check-declare compile clean check help
+.PHONY: default test lint checkdoc check-declare compile clean check help info
 
-# Default target: byte-compile.  Lint is not included so the common
-# edit-then-`make' loop stays fast; run `make check' before committing.
-default: compile
+# Default target: byte-compile and regenerate the info manual if
+# readme.org changed.  Info regeneration is mtime-gated -- if readme.org
+# has not been touched since org-roam-gt.info was last built, this is a
+# no-op.  Lint is not included so the common edit-then-`make' loop stays
+# fast; run `make check' before committing.
+default: compile info
 
 $(ELPA_DIR):
 	@mkdir -p $@
@@ -130,15 +137,41 @@ compile: $(ELPA_DIR)/.installed
 clean:
 	rm -f *.elc tests/*.elc
 
-check: compile lint checkdoc check-declare
+# Info manual: org-roam-gt.info and dir both live at the package root
+# and are committed.  `make clean' does NOT touch them -- they are
+# source-of-truth artifacts consumed by ELPA activation.  Regenerate
+# after editing readme.org.
+INFO_FILE = org-roam-gt.info
+INFO_DIR  = dir
+
+info: $(INFO_FILE) $(INFO_DIR)
+
+# Stage readme.org as org-roam-gt.org so Org's basename-derived output
+# filename matches `#+texinfo_filename'.  Without this, Org produces
+# readme.texi -> org-roam-gt.info (from @setfilename) and then its
+# post-processing looks for readme.info and fails.
+$(INFO_FILE): readme.org
+	cp readme.org org-roam-gt.org
+	$(EMACS) -Q --batch \
+	  --eval "(setq load-prefer-newer t)" \
+	  --eval "(require 'ox-texinfo)" \
+	  org-roam-gt.org \
+	  -f org-texinfo-export-to-info
+	rm -f org-roam-gt.org org-roam-gt.texi
+
+$(INFO_DIR): $(INFO_FILE)
+	install-info --info-file=$(INFO_FILE) --dir-file=$(INFO_DIR)
+
+check: compile lint checkdoc check-declare info
 
 help:
 	@echo "Targets:"
-	@echo "  make          compile (default)"
+	@echo "  make          compile + info (default)"
 	@echo "  make test     run buttercup test suite"
 	@echo "  make lint     run package-lint"
 	@echo "  make checkdoc run checkdoc"
 	@echo "  make check-declare  verify declare-function file arguments"
 	@echo "  make compile  byte-compile"
-	@echo "  make check    compile + lint + checkdoc + check-declare"
+	@echo "  make info     rebuild org-roam-gt.info and dir from readme.org"
+	@echo "  make check    compile + lint + checkdoc + check-declare + info"
 	@echo "  make clean    remove *.elc"

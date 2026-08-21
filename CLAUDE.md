@@ -14,7 +14,8 @@ It does **not** patch org-roam source files.
 | `org-roam-gt-transient.el` | Opt-in speed-command menu built with `transient` |
 | `tests/test-org-roam-gt-capture.el` | Buttercup test suite |
 | `tests/test-helper.el` | Load-path setup for batch testing |
-| `Makefile` | `make`, `make test`, `make lint`, `make checkdoc`, `make check-declare`, `make check`, `make clean` |
+| `Makefile` | `make`, `make test`, `make lint`, `make checkdoc`, `make check-declare`, `make check`, `make info`, `make clean` |
+| `org-roam-gt.info`, `dir` | Info manual generated from `readme.org` via `make info` (committed artifacts consumed by ELPA activation) |
 | `LICENSE` | GPL-3.0-or-later |
 | `melpa/` | MELPA recipe (`org-roam-gt`) and submission instructions |
 | `.github/workflows/package-lint.yml` | CI: lint + checkdoc + check-declare + test on Emacs 30.1 |

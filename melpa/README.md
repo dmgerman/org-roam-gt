@@ -15,9 +15,10 @@ To submit:
 
 ## What ships via MELPA
 
-The `:files` directive selects the three elisp files that make up the
-package: `org-roam-gt.el`, `org-roam-gt-capture.el`, and
-`org-roam-gt-transient.el`.
+The recipe omits `:files`, so MELPA's default selector applies: every
+root-level `*.el`, the `LICENSE`, the `org-roam-gt.info` manual, and
+its `dir` entry file.  The `tests/`, `ai/`, `melpa/`, and `.github/`
+subdirectories are not part of the package.
 
 ## Opt-in speed-command menu
 
