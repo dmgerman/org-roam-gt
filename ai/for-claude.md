@@ -164,6 +164,33 @@ needs one:
 Templates that hit a fixed node (`(node "id")`, `(nodefunc fn)`, `(node+headline
 "id" …)`, and their olp/datetree variants) never prompt at all.
 
+### `:filter-fn` threading — key gotchas
+
+`:filter-fn` is a capture-template property that narrows the pool of nodes
+offered by `org-roam-node-read`.  Getting it to the prompt correctly has
+two subtleties:
+
+1. **It's an org-capture property, not an org-roam one.**
+   `org-roam-capture--template-keywords` doesn't include `:filter-fn`, so
+   `--convert-template` routes it into the org-capture options plist rather
+   than the `:org-roam` sub-plist.  Reads must use `org-capture-get`, not
+   `org-roam-capture--get`.  `--find-node` and `--ensure-node-for-file-target`
+   both use `org-capture-get` for this reason.
+
+2. **`--capture-no-prompt` must not inject `:filter-fn nil`.**
+   `--convert-template` appends our `:props` after the template's own keys
+   and processes the resulting list left-to-right with `plist-put`; the last
+   assignment for a given key wins.  If we unconditionally passed
+   `:props (list :filter-fn nil)` (as we did before), a nil from the
+   interactive caller would shadow the template's own `:filter-fn`.  The
+   advice therefore only includes `:filter-fn` in `:props` when the caller
+   actually supplied one (`(when filter-fn (list :filter-fn filter-fn))`).
+
+Regression coverage: the buttercup spec under "template :filter-fn threading"
+in `tests/test-org-roam-gt-capture.el` mocks `org-roam-node-read` to record
+its filter-fn argument and asserts equality with the template's
+`:filter-fn`.  Both bugs fail this spec.
+
 ## Plain-template placement fix
 
 `:around` advice on `org-roam-capture--adjust-point-for-capture-type` short-

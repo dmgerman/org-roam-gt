@@ -233,7 +233,19 @@ If TITLE-OR-ID is ~nil~, the user is prompted to choose a node interactively.
   "** TODO %?\n%T\n\n%i\n"
   :target (node+headline nil "Actions")
   :unnarrowed t)
+
+;; Prompt is narrowed by :filter-fn to nodes whose TODO keyword is PROJ or AREA
+'("E" "Email under a project" entry
+  "** TODO %?\n"
+  :target (node+headline nil "Emails")
+  :filter-fn (lambda (n) (member (org-roam-node-todo n) '("PROJ" "AREA")))
+  :unnarrowed t)
 #+end_src
+
+The standard org-capture template property ~:filter-fn~ works with every
+prompting target (~node~ nil, ~node+headline~ nil, ~node+olp~ nil,
+~node+olp+datetree~ nil).  It receives an ~org-roam-node~ and returns
+non-nil to keep it in the candidate pool.
 
 *** =(node+olp TITLE-OR-ID "h1" "h2" ...)=
 

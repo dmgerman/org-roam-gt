@@ -196,13 +196,18 @@ unconditionally, so a stub node from `org-roam-node-create' is passed
 instead of nil to avoid `wrong-type-argument'.  The stub is detected
 downstream by `--stub-node-p' and replaced with a real node whenever a
 target actually needs one."
-  (org-roam-capture-
-   :goto goto
-   :keys keys
-   :info (plist-get kwargs :info)
-   :templates (plist-get kwargs :templates)
-   :node (org-roam-node-create)
-   :props (list :filter-fn (plist-get kwargs :filter-fn))))
+  (let ((filter-fn (plist-get kwargs :filter-fn)))
+    (org-roam-capture-
+     :goto goto
+     :keys keys
+     :info (plist-get kwargs :info)
+     :templates (plist-get kwargs :templates)
+     :node (org-roam-node-create)
+     ;; Only inject :filter-fn when the caller supplied one; a nil
+     ;; :filter-fn in :props merges into the template plist AFTER the
+     ;; template's own keys and would shadow the template's :filter-fn
+     ;; via `plist-put's duplicate-key semantics.
+     :props (when filter-fn (list :filter-fn filter-fn)))))
 
 (defun org-roam-gt-capture--read-template-file (path)
   "Return the contents of PATH as a string.
@@ -380,7 +385,7 @@ to pick a node before displaying the template menu."
     (if (and org-roam-capture--node
              (org-roam-node-file org-roam-capture--node))
         org-roam-capture--node
-      (org-roam-node-read nil (org-roam-capture--get :filter-fn) nil t))))
+      (org-roam-node-read nil (org-capture-get :filter-fn) nil t))))
 
 ;;; Setup functions for each new target type
 

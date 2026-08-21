@@ -595,6 +595,38 @@ PLIST is a plist of keys and values to inject."
               (kill-buffer buf))
             (ignore-errors (delete-file target-file))))))))
 
+;;; Regression: template :filter-fn is threaded to org-roam-node-read
+
+(describe "template :filter-fn threading"
+
+  (it "passes the template's :filter-fn to org-roam-node-read for (node+headline nil ...)"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: filter-id\n:END:\n#+title: T\n\n* Emails\n"
+      (let* ((node (org-roam-gt-test--file-level-node "filter-id" fixture-file))
+             (my-filter (lambda (n) (member (org-roam-node-todo n) '("PROJ" "AREA"))))
+             (seen-filter nil))
+        (cl-letf (((symbol-function 'org-roam-node-from-id)
+                   (lambda (id) (when (string= id (org-roam-node-id node)) node)))
+                  ((symbol-function 'org-roam-node-from-title-or-alias)
+                   (lambda (_) nil))
+                  ((symbol-function 'org-roam-node-read)
+                   (lambda (&optional _initial filter-fn &rest _)
+                     (setq seen-filter filter-fn)
+                     node))
+                  ((symbol-function 'org-roam-db-update-file)
+                   (lambda (&rest _) nil)))
+          (let ((org-roam-capture-templates
+                 (list `("t" "test" entry "* SENTINEL-filter\nbody"
+                         :target (node+headline nil "Emails")
+                         :filter-fn ,my-filter
+                         :immediate-finish t :unnarrowed t))))
+            (unwind-protect
+                (progn
+                  (org-roam-gt-capture--enable)
+                  (org-roam-capture nil "t"))
+              (org-roam-gt-capture--disable))))
+        (expect seen-filter :to-equal my-filter)))))
+
 ;;; Tests for --capture-dashed-ensure-node
 
 (describe "org-roam-gt-capture--capture-dashed-ensure-node"
