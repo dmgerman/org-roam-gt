@@ -40,8 +40,9 @@ patch org-roam source files. Two independent features:
 
 ```
 modules/org-roam-gt/
-├── org-roam-gt.el            # minor mode, speed commands, node display
-├── org-roam-gt-capture.el    # new target types (advice only)
+├── org-roam-gt.el            # minor mode, node display
+├── org-roam-gt-capture.el    # new target types + template-body / :create-file
+├── org-roam-gt-transient.el  # opt-in speed-command menu (transient)
 ├── readme.org                # user-facing documentation
 ├── ai/
 │   ├── for-claude.md         # this file
@@ -275,9 +276,11 @@ end-of-file markers) are already MELPA-compliant.  Every commit is CI-checked
 via `.github/workflows/package-lint.yml` on Emacs 27.1, 28.2, 29.4, and
 snapshot.
 
-The `hydra' dependency is intentionally NOT declared in `Package-Requires`;
-`org-roam-gt-hydra.el` uses `(require 'hydra nil t)` and skips registration
-if `hydra' is absent.  See `melpa/README.md` for rationale.
+The `transient` dependency is intentionally NOT declared in
+`Package-Requires`; `org-roam-gt-transient.el` uses
+`(require 'transient nil t)` and skips registration if `transient` is
+absent.  Transient is bundled with Emacs 28.1+; on Emacs 27.1 users
+install it from ELPA/MELPA.  See `melpa/README.md` for rationale.
 
 ## Design constraints
 

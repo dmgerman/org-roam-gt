@@ -9,8 +9,9 @@ It does **not** patch org-roam source files.
 
 | File | Role |
 |------|------|
-| `org-roam-gt.el` | Minor mode, speed commands, node display template |
-| `org-roam-gt-capture.el` | New capture target types (advice only) |
+| `org-roam-gt.el` | Minor mode, node display template |
+| `org-roam-gt-capture.el` | New capture target types + template-body / :create-file (advice only) |
+| `org-roam-gt-transient.el` | Opt-in speed-command menu built with `transient` |
 | `tests/test-org-roam-gt-capture.el` | Buttercup test suite |
 | `tests/test-helper.el` | Load-path setup for batch testing |
 | `Makefile` | `make`, `make test`, `make lint`, `make checkdoc`, `make check-declare`, `make check`, `make clean` |

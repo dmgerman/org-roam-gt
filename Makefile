@@ -18,7 +18,7 @@ EMACS ?= emacs
 # and (require 'org-roam-gt) without erroring when compiled in isolation.
 EL_FILES = org-roam-gt-capture.el \
            org-roam-gt.el \
-           org-roam-gt-hydra.el
+           org-roam-gt-transient.el
 
 # Project-local ELPA so the user's personal package directory is not touched
 # and CI starts from a clean slate every run.
@@ -26,9 +26,10 @@ ELPA_DIR = .elpa
 
 # Dependencies installed into the project-local ELPA before lint/compile.
 # `org-roam' is the runtime dependency declared in org-roam-gt.el's
-# Package-Requires; `hydra' is optional but used by org-roam-gt-hydra.el;
-# `package-lint' and `buttercup' are the dev tooling.
-DEPS = org-roam hydra package-lint buttercup
+# Package-Requires; `transient' is optional but used by
+# org-roam-gt-transient.el (bundled with Emacs 28+, installed from ELPA
+# for older Emacsen); `package-lint' and `buttercup' are the dev tooling.
+DEPS = org-roam transient package-lint buttercup
 
 # Common Emacs invocation header: project-local package-user-dir, MELPA and
 # GNU/nongnu-ELPA in package-archives, package-initialize so installed

@@ -84,11 +84,16 @@ Binds `fixture-file' in BODY.  Cleans up the file and its buffer."
 
 (defun org-roam-gt-test--run-capture (template node)
   "Run `org-roam-capture' with TEMPLATE using NODE for id/title lookup.
-Mocks the DB-backed lookups so no live org-roam database is required."
+Mocks the DB-backed lookups so no live org-roam database is required.
+`org-roam-node-read' is also stubbed to return NODE, so templates with a
+nil title-or-id and file* templates that need `${slug}' work without a
+live prompt."
   (cl-letf (((symbol-function 'org-roam-node-from-id)
              (lambda (id) (when (string= id (org-roam-node-id node)) node)))
             ((symbol-function 'org-roam-node-from-title-or-alias)
              (lambda (_) nil))
+            ((symbol-function 'org-roam-node-read)
+             (lambda (&rest _) node))
             ((symbol-function 'org-roam-db-update-file)
              (lambda (&rest _) nil)))
     (let ((org-roam-capture-templates (list template)))
@@ -97,6 +102,16 @@ Mocks the DB-backed lookups so no live org-roam database is required."
             (org-roam-gt-capture--enable)
             (org-roam-capture nil (car template)))
         (org-roam-gt-capture--disable)))))
+
+(defmacro org-roam-gt-test-with-roam-directory (&rest body)
+  "Bind `org-roam-directory' to a fresh temp directory, cleaned up after BODY.
+Also binds `dir' inside BODY to that directory (with trailing slash)."
+  (declare (indent 0))
+  `(let ((dir (file-name-as-directory (make-temp-file "org-roam-gt-roam-" t))))
+     (unwind-protect
+         (let ((org-roam-directory dir))
+           ,@body)
+       (ignore-errors (delete-directory dir t)))))
 
 (defun org-roam-gt-test--parent-heading-of (file sentinel)
   "Return the heading string containing SENTINEL in FILE."

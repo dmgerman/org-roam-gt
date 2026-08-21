@@ -406,4 +406,234 @@ PLIST is a plist of keys and values to inject."
     (org-roam-gt-test-with-capture-plist '(:create-file no)
       (expect (org-roam-gt-capture--check-create-file nil) :not :to-throw))))
 
+;;; End-to-end coverage per template shape used in dmg-org-roam-helpers.org
+;;
+;; Each spec exercises the exact combination of template type and target that
+;; the user's config actually uses.  The list of shapes was derived from the
+;; capture-templates block in `~/.emacs.d/dmg-org-roam-helpers.org'.
+
+(describe "entry template + (node \"id\")"
+  ;; Templates: M "Mike Farrington protip", r "Chatgpt conversations", a "Ahmed"
+  (it "inserts the entry at the node's file"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: node-a\n:END:\n#+title: T\n\nprelude\n"
+      (org-roam-gt-test--run-capture
+       '("t" "test" entry "* SENTINEL-node-entry\nbody"
+         :target (node "node-a")
+         :immediate-finish t :unnarrowed t)
+       (org-roam-gt-test--file-level-node "node-a" fixture-file))
+      (with-current-buffer (find-file-noselect fixture-file)
+        (save-excursion
+          (goto-char (point-min))
+          (search-forward "SENTINEL-node-entry")
+          (org-back-to-heading t)
+          (expect (org-get-heading t t t t)
+                  :to-equal "SENTINEL-node-entry"))))))
+
+(describe "entry template + (node+headline \"id\" \"h\") + :create-file no"
+  ;; Template: c "Cooking" — fixed node, fixed heading, guard file exists.
+  (it "creates a child entry under the target heading; guard is satisfied"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: cook-id\n:END:\n#+title: Cooking\n\n* Recipes\n"
+      (org-roam-gt-test--run-capture
+       '("t" "test" entry "* SENTINEL-recipe\nbody"
+         :target (node+headline "cook-id" "Recipes")
+         :create-file no
+         :immediate-finish t :unnarrowed t)
+       (org-roam-gt-test--file-level-node "cook-id" fixture-file))
+      (with-current-buffer (find-file-noselect fixture-file)
+        (save-excursion
+          (goto-char (point-min))
+          (search-forward "SENTINEL-recipe")
+          (org-back-to-heading t)
+          (expect (org-get-heading t t t t) :to-equal "SENTINEL-recipe")
+          (org-up-heading-safe)
+          (expect (org-get-heading t t t t) :to-equal "Recipes"))))))
+
+(describe "entry template + (node+headline nil \"h\")"
+  ;; Templates: e, W, T, w, l, L — nil title-or-id → prompt (mocked).
+  (it "prompts for a node then adds the entry under the heading"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: pick-id\n:END:\n#+title: Picked\n\n* Actions\n"
+      (org-roam-gt-test--run-capture
+       '("t" "test" entry "* SENTINEL-picked\nbody"
+         :target (node+headline nil "Actions")
+         :immediate-finish t :unnarrowed t)
+       (org-roam-gt-test--file-level-node "pick-id" fixture-file))
+      (with-current-buffer (find-file-noselect fixture-file)
+        (save-excursion
+          (goto-char (point-min))
+          (search-forward "SENTINEL-picked")
+          (org-back-to-heading t)
+          (expect (org-get-heading t t t t) :to-equal "SENTINEL-picked")
+          (org-up-heading-safe)
+          (expect (org-get-heading t t t t) :to-equal "Actions"))))))
+
+(describe "entry template + (nodefunc+headline fn \"h\")"
+  ;; Template: q "Quick Todo" — function returns node, entry under heading.
+  (it "positions at the heading returned by the function"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: fn-id\n:END:\n#+title: T\n\n* Actions\n"
+      (let* ((node (org-roam-gt-test--file-level-node "fn-id" fixture-file))
+             (template `("t" "test" entry "* SENTINEL-quick\nbody"
+                         :target (nodefunc+headline ,(lambda () node) "Actions")
+                         :immediate-finish t :unnarrowed t)))
+        (org-roam-gt-test--run-capture template node)
+        (with-current-buffer (find-file-noselect fixture-file)
+          (save-excursion
+            (goto-char (point-min))
+            (search-forward "SENTINEL-quick")
+            (org-back-to-heading t)
+            (expect (org-get-heading t t t t) :to-equal "SENTINEL-quick")
+            (org-up-heading-safe)
+            (expect (org-get-heading t t t t) :to-equal "Actions")))))))
+
+(describe "table-line template + (node \"id\")"
+  ;; Template: y "youtube log" — appends a row to the nearest table.
+  (it "appends a row to the table under the node"
+    (org-roam-gt-test-with-capture-fixture
+        (concat ":PROPERTIES:\n:ID: yt-id\n:END:\n#+title: YT\n\n"
+                "| a | b |\n|---|---|\n| 1 | 2 |\n")
+      (org-roam-gt-test--run-capture
+       '("t" "test" table-line "| SENTINEL-yt | %U |"
+         :target (node "yt-id")
+         :prepend nil
+         :immediate-finish t :unnarrowed t)
+       (org-roam-gt-test--file-level-node "yt-id" fixture-file))
+      (with-current-buffer (find-file-noselect fixture-file)
+        (save-excursion
+          (goto-char (point-min))
+          (expect (search-forward "SENTINEL-yt" nil t) :to-be-truthy))))))
+
+(describe "table-line template + (node+olp+datetree id) + :create-file no"
+  ;; Templates: +, = "daily progress" — datetree under a fixed node.
+  (it "adds a row under the datetree day heading beneath the node"
+    (org-roam-gt-test-with-capture-fixture
+        (concat ":PROPERTIES:\n:ID: log-id\n:END:\n#+title: Log\n\n"
+                "* Journal\n\n")
+      (let ((org-overriding-default-time (encode-time 0 0 12 15 1 2025)))
+        (org-roam-gt-test--run-capture
+         '("t" "test" table-line "| SENTINEL-daily | %U |"
+           :target (node+olp+datetree "log-id" "Journal")
+           :create-file no
+           :prepend nil
+           :immediate-finish t :unnarrowed t)
+         (org-roam-gt-test--file-level-node "log-id" fixture-file)))
+      (with-current-buffer (find-file-noselect fixture-file)
+        (save-excursion
+          (goto-char (point-min))
+          (search-forward "SENTINEL-daily")
+          (org-back-to-heading t)
+          (expect (org-get-heading t t t t) :to-match "\\`2025-01-15")
+          (while (> (org-outline-level) 1) (org-up-heading-safe))
+          (expect (org-get-heading t t t t) :to-equal "Journal"))))))
+
+(describe "plain template + file+head with inline head + ${slug}"
+  ;; Template: g "japanese grammar" — file+head with an inline head string
+  ;; that references ${title}.  The path also expands ${slug}.
+  (it "creates the file with the head, inserts the plain body"
+    (org-roam-gt-test-with-roam-directory
+      (let* ((node (org-roam-node-create :id "new-gram" :title "hello world"))
+             (target-file nil))
+        (unwind-protect
+            (progn
+              (org-roam-gt-test--run-capture
+               '("t" "test" plain "SENTINEL-grammar"
+                 :target (file+head "${slug}.org"
+                                    "#+title: ${title}\n#+filetags: :grammar:\n")
+                 :immediate-finish t :unnarrowed t)
+               node)
+              (setq target-file (expand-file-name
+                                 (concat (org-roam-node-slug node) ".org")
+                                 dir))
+              (expect (file-exists-p target-file) :to-be-truthy)
+              (with-temp-buffer
+                (insert-file-contents target-file)
+                (let ((body (buffer-string)))
+                  (expect body :to-match "#\\+title: hello world")
+                  (expect body :to-match "#\\+filetags: :grammar:")
+                  (expect body :to-match "SENTINEL-grammar"))))
+          (when (and target-file (file-exists-p target-file))
+            (when-let* ((buf (find-buffer-visiting target-file)))
+              (with-current-buffer buf (set-buffer-modified-p nil))
+              (kill-buffer buf))
+            (ignore-errors (delete-file target-file))))))))
+
+(describe "plain template + file+head + (file \"PATH\") + :create-file yes"
+  ;; Templates: P, A, R, b — file+head whose head comes from a file, guard
+  ;; that the target file must NOT already exist.
+  (it "creates the file, resolves the head from the fixture file"
+    (org-roam-gt-test-with-roam-directory
+      ;; Copy the fixture template into the temp roam directory so relative
+      ;; resolution against `org-roam-directory' finds it.
+      (copy-file (expand-file-name "template-head.txt"
+                                   org-roam-gt-test-roam-files-dir)
+                 (expand-file-name "template-head.txt" dir))
+      (let* ((node (org-roam-node-create :id "new-proj" :title "shiny thing"))
+             (target-file nil))
+        (unwind-protect
+            (progn
+              (org-roam-gt-test--run-capture
+               '("t" "test" plain "SENTINEL-proj"
+                 :target (file+head "${slug}.org"
+                                    (file "template-head.txt"))
+                 :create-file yes
+                 :immediate-finish t :unnarrowed t)
+               node)
+              (setq target-file (expand-file-name
+                                 (concat (org-roam-node-slug node) ".org")
+                                 dir))
+              (expect (file-exists-p target-file) :to-be-truthy)
+              (with-temp-buffer
+                (insert-file-contents target-file)
+                (let ((body (buffer-string)))
+                  (expect body :to-match "#\\+title: shiny thing")
+                  (expect body :to-match "SENTINEL-proj"))))
+          (when (and target-file (file-exists-p target-file))
+            (when-let* ((buf (find-buffer-visiting target-file)))
+              (with-current-buffer buf (set-buffer-modified-p nil))
+              (kill-buffer buf))
+            (ignore-errors (delete-file target-file))))))))
+
+;;; Tests for --capture-dashed-ensure-node
+
+(describe "org-roam-gt-capture--capture-dashed-ensure-node"
+
+  (it "passes ARGS through unchanged when :node is a real node"
+    (let* ((real-node (org-roam-node-create :id "abc" :title "T"))
+           (args (list :goto nil :keys "k" :node real-node)))
+      (expect (org-roam-gt-capture--capture-dashed-ensure-node args)
+              :to-equal args)))
+
+  (it "prompts for a node when :node is nil"
+    (let* ((prompted (org-roam-node-create :id "prompted-id" :title "Prompted"))
+           (calls 0))
+      (cl-letf (((symbol-function 'org-roam-node-read)
+                 (lambda (&rest _) (setq calls (1+ calls)) prompted)))
+        (let* ((args (list :goto nil :node nil))
+               (result (org-roam-gt-capture--capture-dashed-ensure-node args)))
+          (expect calls :to-equal 1)
+          (expect (plist-get result :node) :to-equal prompted)))))
+
+  (it "prompts for a node when :node key is absent"
+    (let* ((prompted (org-roam-node-create :id "prompted-id" :title "Prompted"))
+           (calls 0))
+      (cl-letf (((symbol-function 'org-roam-node-read)
+                 (lambda (&rest _) (setq calls (1+ calls)) prompted)))
+        (let ((result (org-roam-gt-capture--capture-dashed-ensure-node nil)))
+          (expect calls :to-equal 1)
+          (expect (plist-get result :node) :to-equal prompted)))))
+
+  (it "threads :filter-fn from :props into org-roam-node-read"
+    (let* ((prompted (org-roam-node-create :id "id" :title "T"))
+           (my-filter (lambda (_) t))
+           (seen-filter nil))
+      (cl-letf (((symbol-function 'org-roam-node-read)
+                 (lambda (_initial filter-fn &rest _)
+                   (setq seen-filter filter-fn)
+                   prompted)))
+        (org-roam-gt-capture--capture-dashed-ensure-node
+         (list :node nil :props (list :filter-fn my-filter)))
+        (expect seen-filter :to-equal my-filter)))))
+
 ;;; test-org-roam-gt-capture.el ends here

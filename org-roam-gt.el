@@ -167,7 +167,7 @@ This function is equivalent to the following template
    " "
    (string-join (org-roam-node-olp node) " > ")))
 
-;; speed commands are defined in org-roam-gt-hydra.el.
+;; speed commands are defined in org-roam-gt-transient.el.
 ; Load that file and it will register itself on org-roam-gt-enable-hook
 ; and org-roam-gt-disable-hook automatically.
 

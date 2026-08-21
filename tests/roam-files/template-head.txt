@@ -1,0 +1,4 @@
+:PROPERTIES:
+:ID: ${slug}
+:END:
+#+title: ${title}

@@ -17,15 +17,17 @@ To submit:
 
 The `:files` directive selects the three elisp files that make up the
 package: `org-roam-gt.el`, `org-roam-gt-capture.el`, and
-`org-roam-gt-hydra.el`.
+`org-roam-gt-transient.el`.
 
-## Optional runtime dependency: hydra
+## Optional runtime dependency: transient
 
-`org-roam-gt-hydra.el` uses the `hydra` package for a speed-command
-menu, but `hydra` is intentionally **not** declared in
-`Package-Requires`.  It is loaded lazily via `(require 'hydra nil t)`,
-and if unavailable the hydra registration is skipped and the rest of
-the package continues to work.
+`org-roam-gt-transient.el` uses the `transient` package for a
+speed-command menu.  `transient` is bundled with Emacs 28.1+; on
+Emacs 27.1 it must be installed separately (available on GNU ELPA and
+MELPA).  It is intentionally **not** declared in `Package-Requires`;
+it is loaded lazily via `(require 'transient nil t)`, and if
+unavailable the menu registration is skipped and the rest of the
+package continues to work.
 
-Users who want the hydra should install `hydra` from MELPA separately
-and then `(require 'org-roam-gt-hydra)`.
+Users who want the menu should ensure `transient` is available and
+then `(require 'org-roam-gt-transient)`.

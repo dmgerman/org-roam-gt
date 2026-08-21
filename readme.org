@@ -29,9 +29,9 @@ no built-in keyboard shortcuts.
    that mis-placed plain templates positioned at a heading is also
    installed.
 
-3. *Speed command menu* — a hydra bound to ~m~ in ~org-speed-commands~,
-   giving one-keystroke access to capture, refile, find, and extract-subtree
-   from any org heading.
+3. *Speed command menu* — a ~transient~ prefix bound to ~m~ in
+   ~org-speed-commands~, giving one-keystroke access to capture, refile,
+   find, and extract-subtree from any org heading.
 
 ** Installation
 
@@ -41,8 +41,9 @@ Once accepted by [[https://melpa.org/][MELPA]]:
 (use-package org-roam-gt
   :ensure t
   :config
-  ;; Optional: load the speed-command hydra (also install `hydra' from MELPA)
-  (require 'org-roam-gt-hydra)
+  ;; Optional: load the speed-command menu (transient is bundled with Emacs 28+;
+  ;; install it from ELPA/MELPA on Emacs 27.1)
+  (require 'org-roam-gt-transient)
   (org-roam-gt-mode 1))
 #+end_src
 
@@ -52,18 +53,18 @@ Or from a local checkout:
 (use-package org-roam-gt
   :load-path "~/.emacs.d/modules/org-roam-gt"
   :config
-  (require 'org-roam-gt-hydra)
+  (require 'org-roam-gt-transient)
   (org-roam-gt-mode 1))
 #+end_src
 
 To disable, call ~(org-roam-gt-mode -1)~.  All features are controlled
 by the mode and restore their previous state on disable.
 
-The ~hydra~ package is an *optional* runtime dependency and is intentionally
-not listed in ~Package-Requires~.  The hydra file loads it via
-~(require 'hydra nil t)~ and silently skips registering the hydra when it
-is absent.  Users who want the speed-command menu need to install ~hydra~
-separately.
+The ~transient~ package is an *optional* runtime dependency and is intentionally
+not listed in ~Package-Requires~.  It is bundled with Emacs 28.1 and
+later; on Emacs 27.1 install it from ELPA or MELPA.  The transient file
+loads it via ~(require 'transient nil t)~ and silently skips registering
+the menu when it is absent.
 
 ** Selectively disabling features
 
@@ -89,28 +90,29 @@ re-enable:
 (org-roam-gt-mode 1)
 #+end_src
 
-*** Speed command hydra (opt-in)
+*** Speed command menu (opt-in)
 
-The speed command hydra is self-contained in ~org-roam-gt-hydra.el~.  It uses
-~org-roam-gt-enable-hook~ and ~org-roam-gt-disable-hook~ to register and
-de-register itself with the mode.
+The speed command menu is self-contained in ~org-roam-gt-transient.el~.
+It uses ~org-roam-gt-enable-hook~ and ~org-roam-gt-disable-hook~ to
+register and de-register itself with the mode.
 
-To enable the hydra, require it /before/ enabling the mode:
+To enable the menu, require it /before/ enabling the mode:
 
 #+begin_src emacs-lisp
-(require 'org-roam-gt-hydra)   ; registers hydra on the hooks
-(org-roam-gt-mode 1)           ; fires org-roam-gt-enable-hook, installs hydra
+(require 'org-roam-gt-transient)   ; registers menu on the hooks
+(org-roam-gt-mode 1)               ; fires org-roam-gt-enable-hook, installs menu
 #+end_src
 
-To disable the hydra entirely, simply do not load ~org-roam-gt-hydra.el~.
-Neither the hydra key (~m~) nor the ~hydra~ package itself will be loaded.
+To disable the menu entirely, simply do not load
+~org-roam-gt-transient.el~.  Neither the menu key (~m~) nor the
+~transient~ package itself will be loaded.
 
-If you want to remove the hydra after the mode is already running:
+If you want to remove the menu after the mode is already running:
 
 #+begin_src emacs-lisp
-(remove-hook 'org-roam-gt-enable-hook  #'org-roam-gt-hydra--enable)
-(remove-hook 'org-roam-gt-disable-hook #'org-roam-gt-hydra--disable)
-(org-roam-gt-hydra--disable)   ; clean up the current session
+(remove-hook 'org-roam-gt-enable-hook  #'org-roam-gt-transient--enable)
+(remove-hook 'org-roam-gt-disable-hook #'org-roam-gt-transient--disable)
+(org-roam-gt-transient--disable)   ; clean up the current session
 #+end_src
 
 *** Hook-based extension API
@@ -357,9 +359,9 @@ templates whose function may return a not-yet-existent node.
 
 ** Speed commands
 
-When ~org-roam-gt-enable-speed-commands~ is non-nil (the default), the key ~m~
-is added to ~org-speed-commands~.  It opens a hydra with shortcuts for common
-org-roam operations:
+When ~org-roam-gt-transient.el~ is loaded (see the opt-in section above),
+the key ~m~ is added to ~org-speed-commands~.  It opens a ~transient~
+prefix with shortcuts for common org-roam operations:
 
 | Key | Action                         |
 |-----+--------------------------------|

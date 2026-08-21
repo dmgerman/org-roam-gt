@@ -156,6 +156,26 @@ check runs inside dispatch, once the node has been resolved."
             (org-roam-gt-capture--check-create-file true-path)))
       (org-roam-gt-capture--check-create-file nil))))
 
+(defun org-roam-gt-capture--capture-dashed-ensure-node (args)
+  "Filter-args advice for `org-roam-capture-'.
+Upstream `org-roam-capture-' requires a non-nil `org-roam-node' and
+signals `wrong-type-argument org-roam-node nil' otherwise.  Third-party
+callers (for example `ai-tracks') that invoke `org-roam-capture-'
+without a `:node' argument therefore break.  This filter canonicalises
+that entry point: when `:node' is missing or nil, prompt the user via
+`org-roam-node-read' (honouring `:filter-fn' from `:props' if present)
+and inject the chosen node back into ARGS.  Callers that pass a real
+node see ARGS unchanged, so our own `--capture-no-prompt' stub node
+still flows through untouched."
+  (if (plist-get args :node)
+      args
+    (let* ((props (plist-get args :props))
+           (filter-fn (plist-get props :filter-fn))
+           (node (org-roam-node-read nil filter-fn)))
+      (setf (org-roam-node-id node)
+            (or (org-roam-node-id node) (org-id-new)))
+      (plist-put (copy-sequence args) :node node))))
+
 (defun org-roam-gt-capture--capture-no-prompt (_orig-fn &optional goto keys &rest kwargs)
   "Around advice for `org-roam-capture'.
 Skips upstream's up-front `org-roam-node-read' call so `org-roam-capture'
@@ -531,6 +551,8 @@ for the full report."
   "Enable the org-roam-gt capture extension."
   (advice-add 'org-roam-capture
               :around #'org-roam-gt-capture--capture-no-prompt)
+  (advice-add 'org-roam-capture-
+              :filter-args #'org-roam-gt-capture--capture-dashed-ensure-node)
   (advice-add 'org-roam-capture--setup-target-location
               :around #'org-roam-gt-capture--dispatch)
   (advice-add 'org-roam-capture--setup-target-location
@@ -544,6 +566,8 @@ for the full report."
   "Disable the org-roam-gt capture extension."
   (advice-remove 'org-roam-capture
                  #'org-roam-gt-capture--capture-no-prompt)
+  (advice-remove 'org-roam-capture-
+                 #'org-roam-gt-capture--capture-dashed-ensure-node)
   (advice-remove 'org-roam-capture--setup-target-location
                  #'org-roam-gt-capture--dispatch)
   (advice-remove 'org-roam-capture--setup-target-location
