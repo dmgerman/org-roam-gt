@@ -2,3 +2,5 @@ ai/reddit.md
 *~
 *.elc
 .elpa/
+.claude
+ai/*.org
