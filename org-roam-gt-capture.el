@@ -246,9 +246,17 @@ Returns point at the beginning of the heading line, or nil if absent."
       (when (re-search-forward re nil t)
         (match-beginning 0)))))
 
+(defun org-roam-gt-capture--announce-created-heading (heading)
+  "Report on the echo area that HEADING was created in the current buffer.
+A destination heading that did not exist is worth noticing: it usually
+means a typo in a template, or a refile aimed at the wrong node."
+  (message "org-roam-gt: created heading \"%s\" in %s"
+           heading (buffer-name)))
+
 (defun org-roam-gt-capture-find-or-create-heading (heading)
   "Return a marker at the start of HEADING within the current subtree.
-Creates HEADING as a child of the current entry if absent.
+Creates HEADING as a child of the current entry if absent, and reports
+the creation via `org-roam-gt-capture--announce-created-heading'.
 Always returns a marker at the beginning of the heading line,
 whether the heading was found or newly created."
   (let ((level (+ 1 (or (org-current-level) 0))))
@@ -261,6 +269,7 @@ whether the heading was found or newly created."
          (let (org-insert-heading-respect-content)
            (org-insert-heading '(4) nil level))
          (insert heading)
+         (org-roam-gt-capture--announce-created-heading heading)
          (org-back-to-heading t)
          (point-marker))))))
 
@@ -297,6 +306,7 @@ template variables which are expanded via
            (unless (= lmax 1)
              (dotimes (_ level) (org-do-demote)))
            (insert heading)
+           (org-roam-gt-capture--announce-created-heading heading)
            (setq end (point))
            (goto-char start)
            (while (re-search-forward re end t)
@@ -370,6 +380,60 @@ OLP), so the datetree is built at file scope — matching org behaviour."
        (t (org-today))))
      keep-restriction)))
 
+;;; Target navigation, shared by capture and refile
+
+;; The two entry points below carry all the knowledge of what each node-based
+;; target type means *inside* the destination node.  Resolving which node is
+;; meant, and what to do once positioned, differ between capture and refile
+;; and stay with each caller.
+
+(defconst org-roam-gt-capture-target-node-types
+  '(node nodefunc node+headline nodefunc+headline node+olp
+         node+olp+datetree nodefunc+olp+datetree)
+  "Target types whose destination is a position inside an org-roam node.
+`node' is included because `org-roam-gt-refile' handles it; capture
+leaves that type to org-roam itself.")
+
+(defun org-roam-gt-capture-target-validate (target-spec)
+  "Signal a user-error when TARGET-SPEC is malformed for its target type.
+Called before any node is resolved, so a malformed target fails before
+the user is prompted to pick a node."
+  (let ((type (car target-spec)))
+    (pcase type
+      ((or 'node+headline 'nodefunc+headline)
+       (let ((head (nth 2 target-spec)))
+         (unless (stringp head)
+           (user-error "Org-roam-gt-capture: %s target requires a headline string, got: %S"
+                       type head))))
+      ('node+olp
+       (let ((olp (cddr target-spec)))
+         (unless (consp olp)
+           (user-error "Org-roam-gt-capture: node+olp target requires at least one heading, got: %S"
+                       olp)))))))
+
+(defun org-roam-gt-capture-target-navigate (target-spec)
+  "Move point to the destination TARGET-SPEC names and return that position.
+Point must already be at the node's own position, in the node's buffer;
+this function only walks the part of the target below the node.  Missing
+headings, outline paths and datetree entries are created.  TARGET-SPEC is
+assumed to have passed `org-roam-gt-capture-target-validate'."
+  (let ((type (car target-spec)))
+    (pcase type
+      ((or 'node 'nodefunc)
+       (point))
+      ((or 'node+headline 'nodefunc+headline)
+       (goto-char (org-roam-gt-capture-find-or-create-heading (nth 2 target-spec)))
+       (point))
+      ('node+olp
+       (goto-char (org-roam-gt-capture-find-or-create-olp (cddr target-spec)))
+       (point))
+      ((or 'node+olp+datetree 'nodefunc+olp+datetree)
+       (when-let* ((olp (cddr target-spec)))
+         (goto-char (org-roam-gt-capture-find-or-create-olp olp)))
+       (org-roam-gt-capture--datetree-at-point)
+       (point))
+      (_ (user-error "Org-roam-gt-capture: unsupported target type: %S" type)))))
+
 ;;; Node lookup
 
 (defun org-roam-gt-capture--find-node (title-or-id)
@@ -408,12 +472,6 @@ TARGET-SPEC is not a function."
                   context fn))
     (funcall fn)))
 
-(defun org-roam-gt-capture--require-headline (head context)
-  "Signal a user-error if HEAD is not a string, citing CONTEXT."
-  (unless (stringp head)
-    (user-error "Org-roam-gt-capture: %s target requires a headline string, got: %S"
-                context head)))
-
 (defun org-roam-gt-capture--position-at-node (node context)
   "Common preamble for every node-based target setup function.
 Validate NODE, enforce `:create-file' against its file, set
@@ -427,74 +485,67 @@ the template author sees which target type raised the issue."
   (widen)
   (goto-char (org-roam-node-point node)))
 
+(defun org-roam-gt-capture--setup-at-node (target-spec context)
+  "Position the capture buffer at TARGET-SPEC's destination and return point.
+The node is looked up from the second element of TARGET-SPEC, prompting
+when it is nil.  CONTEXT names the target type in error messages.
+TARGET-SPEC is validated before the lookup so a malformed target fails
+before the user is asked to pick a node."
+  (org-roam-gt-capture-target-validate target-spec)
+  (let ((node (org-roam-gt-capture--find-node (nth 1 target-spec))))
+    (org-roam-gt-capture--position-at-node node context)
+    (org-roam-gt-capture-target-navigate target-spec)))
+
+(defun org-roam-gt-capture--setup-at-nodefunc (target-spec context)
+  "Position the capture buffer at TARGET-SPEC's destination and return point.
+Like `org-roam-gt-capture--setup-at-node', except the node comes from
+calling the function in TARGET-SPEC.  CONTEXT names the target type in
+error messages."
+  (org-roam-gt-capture-target-validate target-spec)
+  (let ((node (org-roam-gt-capture--resolve-nodefunc target-spec context)))
+    (org-roam-gt-capture--position-at-node node context)
+    (org-roam-gt-capture-target-navigate target-spec)))
+
 (defun org-roam-gt-capture--setup-nodefunc (target-spec)
   "Position buffer at the node returned by the function in TARGET-SPEC.
 Returns point."
-  (let ((node (org-roam-gt-capture--resolve-nodefunc target-spec "nodefunc")))
-    (org-roam-gt-capture--position-at-node node "nodefunc")
-    (point)))
+  (org-roam-gt-capture--setup-at-nodefunc target-spec "nodefunc"))
 
 (defun org-roam-gt-capture--setup-nodefunc+headline (target-spec)
   "Position buffer at HEADLINE under the node returned by function in TARGET-SPEC.
 Returns point at the heading."
-  (let ((head (nth 2 target-spec)))
-    (org-roam-gt-capture--require-headline head "nodefunc+headline")
-    (let ((node (org-roam-gt-capture--resolve-nodefunc target-spec "nodefunc+headline")))
-      (org-roam-gt-capture--position-at-node node "nodefunc+headline")
-      (goto-char (org-roam-gt-capture-find-or-create-heading head))
-      (point))))
+  (org-roam-gt-capture--setup-at-nodefunc target-spec "nodefunc+headline"))
 
 (defun org-roam-gt-capture--setup-node+headline (target-spec)
   "Position buffer at HEADLINE under the node identified in TARGET-SPEC.
 Returns point at the heading."
-  (let ((head (nth 2 target-spec)))
-    (org-roam-gt-capture--require-headline head "node+headline")
-    (let ((node (org-roam-gt-capture--find-node (nth 1 target-spec))))
-      (org-roam-gt-capture--position-at-node node "node+headline")
-      (goto-char (org-roam-gt-capture-find-or-create-heading head))
-      (point))))
+  (org-roam-gt-capture--setup-at-node target-spec "node+headline"))
 
 (defun org-roam-gt-capture--setup-node+olp (target-spec)
   "Position buffer at the outline path within the node identified in TARGET-SPEC.
 Returns point at the final heading."
-  (let ((olp (cddr target-spec)))
-    (unless (consp olp)
-      (user-error "Org-roam-gt-capture: node+olp target requires at least one heading, got: %S" olp))
-    (let ((node (org-roam-gt-capture--find-node (nth 1 target-spec))))
-      (org-roam-gt-capture--position-at-node node "node+olp")
-      (goto-char (org-roam-gt-capture-find-or-create-olp olp))
-      (point))))
+  (org-roam-gt-capture--setup-at-node target-spec "node+olp"))
 
 (defun org-roam-gt-capture--setup-node+olp+datetree (target-spec)
   "Position buffer at a datetree entry within the node identified in TARGET-SPEC.
 Optional OLP headings between the node and the datetree are navigated/created.
 Returns point at the datetree entry."
-  (let ((olp (cddr target-spec))
-        (node (org-roam-gt-capture--find-node (nth 1 target-spec))))
-    (org-roam-gt-capture--position-at-node node "node+olp+datetree")
-    (when olp
-      (goto-char (org-roam-gt-capture-find-or-create-olp olp)))
-    (org-roam-gt-capture--datetree-at-point)
-    (point)))
+  (org-roam-gt-capture--setup-at-node target-spec "node+olp+datetree"))
 
 (defun org-roam-gt-capture--setup-nodefunc+olp+datetree (target-spec)
   "Position at a datetree entry within the node from function in TARGET-SPEC.
 Optional OLP headings between the node and the datetree are
 navigated/created.  Returns point at the datetree entry."
-  (let ((olp (cddr target-spec))
-        (node (org-roam-gt-capture--resolve-nodefunc target-spec "nodefunc+olp+datetree")))
-    (org-roam-gt-capture--position-at-node node "nodefunc+olp+datetree")
-    (when olp
-      (goto-char (org-roam-gt-capture-find-or-create-olp olp)))
-    (org-roam-gt-capture--datetree-at-point)
-    (point)))
+  (org-roam-gt-capture--setup-at-nodefunc target-spec "nodefunc+olp+datetree"))
 
 ;;; Advice dispatch
 
 (defvar org-roam-gt-capture--node-target-types
   '(nodefunc nodefunc+headline node+headline node+olp
     node+olp+datetree nodefunc+olp+datetree)
-  "Target type symbols handled by org-roam-gt-capture.")
+  "Target type symbols handled by org-roam-gt-capture.
+Narrower than `org-roam-gt-capture-target-node-types': plain `node' belongs to
+org-roam upstream during capture, so the dispatch must not intercept it.")
 
 (defun org-roam-gt-capture--dispatch (orig-fn)
   "Around advice for `org-roam-capture--setup-target-location'.

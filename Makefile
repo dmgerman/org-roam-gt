@@ -11,6 +11,7 @@ PACKAGE = org-roam-gt
 # 'org-roam-gt-capture) and (require 'org-roam-gt) without erroring
 # when compiled in isolation.
 EL_FILES = org-roam-gt-capture.el \
+           org-roam-gt-refile.el \
            org-roam-gt.el \
            org-roam-gt-transient.el
 

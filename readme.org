@@ -14,7 +14,9 @@ route a capture directly into a named heading or a computed destination such
 as today's daily note — and frequent operations like refile and capture have
 no built-in keyboard shortcuts.
 
-~org-roam-gt~ addresses all three with a single minor mode:
+~org-roam-gt~ addresses all of these — the first, second and fourth
+through a single minor mode, and the third through a command that needs
+no mode at all:
 
 1. *Faster node display* — replaces the string-based display template with a
    function, which is significantly faster on large databases and lets you
@@ -36,7 +38,12 @@ no built-in keyboard shortcuts.
    that mis-placed plain templates positioned at a heading is also
    installed.
 
-3. *Speed command menu* — a ~transient~ prefix bound to ~m~ in
+3. *Refile to those same targets* — ~org-roam-gt-refile~ accepts a
+   ~:target~ in capture-template syntax, so a subtree can be moved into a
+   named heading, an outline path or a datetree entry of a node.
+   ~org-roam-refile~ reaches only the top of a node.
+
+4. *Speed command menu* — a ~transient~ prefix bound to ~m~ in
    ~org-speed-commands~, giving one-keystroke access to capture, refile,
    find, and extract-subtree from any org heading.
 
@@ -72,14 +79,24 @@ the mode.
 
 ** Selectively disabling features
 
-All three features are enabled by default.  Each can be turned off
+Every feature is enabled by default.  Each can be turned off
 independently before enabling the mode:
 
+| Variable                                        | Turns off                              |
+|-------------------------------------------------+----------------------------------------|
+| ~org-roam-gt-enable-node-display-function~       | the faster node display function       |
+| ~org-roam-gt-enable-capture-targets~             | the extended capture targets           |
+| ~org-roam-gt-enable-path-canonicalization~       | collapsing symlink aliases             |
+| ~org-roam-gt-inherit-roam-exclude~               | inherited ROAM_EXCLUDE                 |
+| ~org-roam-gt-refresh-keyword-properties-on-index~ | re-reading =#+PROPERTY:= before indexing |
+| ~org-roam-gt-check-duplicate-node-ids~           | refusing to index a repeated node ID   |
+| ~org-roam-gt-track-directory-operations~         | following directory renames and deletions |
+
 #+begin_src emacs-lisp
-;; Disable the faster node display function (keep org-roam's default template)
+;; Keep org-roam's default display template
 (setq org-roam-gt-enable-node-display-function nil)
 
-;; Disable the extended capture targets
+;; Keep org-roam's capture targets
 (setq org-roam-gt-enable-capture-targets nil)
 
 (org-roam-gt-mode 1)
@@ -371,6 +388,134 @@ templates whose function may return a not-yet-existent node.
   :create-file no
   :unnarrowed t)
 #+end_src
+
+** Refiling to a capture target
+
+~org-roam-refile~ can only move a subtree to the top of a node.  A
+capture template can say ~(node+headline nil "Actions")~ and land inside
+it.  ~org-roam-gt-refile~ closes that gap: it takes a ~:target~ in the
+same syntax as ~org-roam-capture-templates~ and refiles the subtree at
+point there.
+
+#+begin_src emacs-lisp
+(org-roam-gt-refile :target '(node+headline nil "Actions")
+                    :filter-fn #'my-project-p)
+#+end_src
+
+That prompts for a node — restricted to projects by the filter — and
+moves the subtree under that node's "Actions" heading, creating the
+heading if the node does not have one.  The destination is the same one
+the matching capture template would have used.
+
+Keyword arguments:
+
+| Keyword      | Meaning                                                        |
+|--------------+----------------------------------------------------------------|
+| ~:target~      | Destination, in ~:target~ syntax.  Defaults to ~(node nil)~         |
+| ~:node~        | Destination node, for targets that would otherwise prompt       |
+| ~:filter-fn~   | Narrows the node prompt, as in ~org-roam-node-find~               |
+| ~:visit~       | When non-nil, leave point at the destination                    |
+
+Only the node-based target types can be refiled to: ~node~, ~nodefunc~,
+~node+headline~, ~nodefunc+headline~, ~node+olp~, ~node+olp+datetree~ and
+~nodefunc+olp+datetree~.  The ~file~-based types describe where to create
+a file, which is not a question a refile can answer; they raise a user
+error.
+
+The destination node is chosen in this order: a title or ID written into
+the target, then ~:node~, then a prompt.  So a wrapper can pass the node
+it already has and skip the prompt entirely:
+
+#+begin_src emacs-lisp
+(defun my-refile-to-inbox ()
+  "Refile the subtree at point under the Inbox heading of my inbox node."
+  (interactive)
+  (org-roam-gt-refile :target '(node+headline "my-inbox-id" "Inbox")))
+#+end_src
+
+Creating a heading that was absent is reported on the echo area — for
+both refile and capture — since it usually means a typo in a target or a
+refile aimed at the wrong node.
+
+After the move the destination file is saved, because org-roam updates
+its database on save; an unsaved destination holds content the database
+does not know about.
+
+Unlike the capture extensions, this function installs no advice and works
+whether or not ~org-roam-gt-mode~ is enabled.
+
+** One path per file
+
+org-roam follows symlinks deliberately — every backend of
+~org-roam--list-files~ passes ~-L~ — and normalizes the result with
+~expand-file-name~, which does not resolve them.  A symlink that leads
+back into ~org-roam-directory~ therefore makes one file reachable under
+two paths.  Both are indexed, both carry the same node ID, and the
+second write of that ID is where duplicate-node errors come from.  The
+failure is quiet: the file sweep reports no error, and only some files
+break outright.
+
+With ~org-roam-gt-mode~ enabled, each file gets one path, in both
+directions:
+
+- ~org-roam-list-files~ is filtered so aliases collapse onto the
+  canonical path.  The result is always a subset of what the finder
+  reported — a path that was not listed is never introduced.
+- ~org-roam-db-update-file~ and ~org-roam-db-clear-file~ canonicalize
+  their file argument, so visiting a file through an alias path and
+  saving it records the canonical path rather than reintroducing the
+  duplicate the sweep just removed.
+
+The canonical path is the physical location when it lies inside
+~org-roam-directory~.  When it lies outside — a link such as
+=links/notes= pointing at a tree kept elsewhere — the in-tree path is
+kept unchanged, since rewriting it would move the file out of org-roam's
+scope.  Where neither applies, the choice is deterministic (shortest
+path, then alphabetical), because an unstable choice would make org-roam
+treat the file as moved on alternating syncs.
+
+~M-x org-roam-gt-report-aliased-files~ lists what is being collapsed,
+reading the file list with canonicalization disabled so the topology
+stays visible:
+
+#+begin_example
+3511 files listed, 3326 distinct, 185 reachable by several paths
+
+/roam/papers/lee2017understanding.org
+    also as: /roam/proj/2026-oss-and-ai/dmg/papers/lee2017understanding.org
+#+end_example
+
+Set ~org-roam-gt-enable-path-canonicalization~ to nil to leave org-roam's
+behaviour untouched.
+
+** Directory renames and deletions
+
+~org-roam-db-autosync-mode~ keeps the database current by advising
+~rename-file~ and ~delete-file~, both of which act on one file.  A whole
+directory reaches neither: the rename handler tests its arguments with
+~org-roam-file-p~, which a directory fails, and a directory is removed by
+~delete-directory~, which carries no advice at all.  Move or delete a
+directory of notes and every file it held keeps its rows, naming a path
+that no longer exists, until the next ~org-roam-db-sync~.
+
+With ~org-roam-gt-mode~ enabled:
+
+- Renaming a directory inside ~org-roam-directory~ clears the rows
+  recorded under the old path and indexes the Org files found under the
+  new one.  A directory moved out of the tree is only cleared: nothing
+  outside ~org-roam-directory~ is indexed.
+- Deleting a directory clears the rows of the files that are actually
+  gone once the deletion returns, so a deletion that fails part way does
+  not cost live rows.  Trashed files count as deleted — they are no
+  longer in the tree.
+
+Both operations are wrapped rather than followed, because the rows
+recorded under a directory can only be read while it still exists.
+Renaming a single file is left to org-roam's own advice, and a directory
+outside ~org-roam-directory~ never reaches the database at all.
+
+Set ~org-roam-gt-track-directory-operations~ to nil to leave org-roam's
+behaviour untouched.
 
 ** Speed commands
 

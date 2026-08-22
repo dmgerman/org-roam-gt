@@ -25,6 +25,9 @@ org-roam-gt
 * New capture target types::
 * Template body loaded from a file::
 * create-file guard::
+* Refiling to a capture target::
+* One path per file::
+* Directory renames and deletions::
 * Speed commands::
 * Faster node search::
 * Development::
@@ -59,7 +62,9 @@ directly into a named heading or a computed destination such as today's
 daily note — and frequent operations like refile and capture have no
 built-in keyboard shortcuts.
 
-   ‘org-roam-gt’ addresses all three with a single minor mode:
+   ‘org-roam-gt’ addresses all of these — the first, second and fourth
+through a single minor mode, and the third through a command that needs
+no mode at all:
 
   1. *Faster node display* — replaces the string-based display template
      with a function, which is significantly faster on large databases
@@ -83,7 +88,12 @@ built-in keyboard shortcuts.
      upstream org-roam bug that mis-placed plain templates positioned at
      a heading is also installed.
 
-  3. *Speed command menu* — a ‘transient’ prefix bound to ‘m’ in
+  3. *Refile to those same targets* — ‘org-roam-gt-refile’ accepts a
+     ‘:target’ in capture-template syntax, so a subtree can be moved
+     into a named heading, an outline path or a datetree entry of a
+     node.  ‘org-roam-refile’ reaches only the top of a node.
+
+  4. *Speed command menu* — a ‘transient’ prefix bound to ‘m’ in
      ‘org-speed-commands’, giving one-keystroke access to capture,
      refile, find, and extract-subtree from any org heading.
 
@@ -94,6 +104,9 @@ built-in keyboard shortcuts.
 * New capture target types::
 * Template body loaded from a file::
 * create-file guard::
+* Refiling to a capture target::
+* One path per file::
+* Directory renames and deletions::
 * Speed commands::
 * Faster node search::
 * Development::
@@ -135,13 +148,23 @@ File: org-roam-gt.info,  Node: Selectively disabling features,  Next: New captur
 1.2 Selectively disabling features
 ==================================
 
-All three features are enabled by default.  Each can be turned off
+Every feature is enabled by default.  Each can be turned off
 independently before enabling the mode:
 
-     ;; Disable the faster node display function (keep org-roam's default template)
+Variable                                            Turns off
+------------------------------------------------------------------------------------------------
+‘org-roam-gt-enable-node-display-function’          the faster node display function
+‘org-roam-gt-enable-capture-targets’                the extended capture targets
+‘org-roam-gt-enable-path-canonicalization’          collapsing symlink aliases
+‘org-roam-gt-inherit-roam-exclude’                  inherited ROAM_EXCLUDE
+‘org-roam-gt-refresh-keyword-properties-on-index’   re-reading ‘#+PROPERTY:’ before indexing
+‘org-roam-gt-check-duplicate-node-ids’              refusing to index a repeated node ID
+‘org-roam-gt-track-directory-operations’            following directory renames and deletions
+
+     ;; Keep org-roam's default display template
      (setq org-roam-gt-enable-node-display-function nil)
 
-     ;; Disable the extended capture targets
+     ;; Keep org-roam's capture targets
      (setq org-roam-gt-enable-capture-targets nil)
 
      (org-roam-gt-mode 1)
@@ -436,7 +459,7 @@ looks like:
      #+filetags: :project:
 
 
-File: org-roam-gt.info,  Node: create-file guard,  Next: Speed commands,  Prev: Template body loaded from a file,  Up: org-roam-gt
+File: org-roam-gt.info,  Node: create-file guard,  Next: Refiling to a capture target,  Prev: Template body loaded from a file,  Up: org-roam-gt
 
 1.5 ‘:create-file’ guard
 ========================
@@ -472,9 +495,143 @@ function may return a not-yet-existent node.
        :unnarrowed t)
 
 
-File: org-roam-gt.info,  Node: Speed commands,  Next: Faster node search,  Prev: create-file guard,  Up: org-roam-gt
+File: org-roam-gt.info,  Node: Refiling to a capture target,  Next: One path per file,  Prev: create-file guard,  Up: org-roam-gt
 
-1.6 Speed commands
+1.6 Refiling to a capture target
+================================
+
+‘org-roam-refile’ can only move a subtree to the top of a node.  A
+capture template can say ‘(node+headline nil "Actions")’ and land inside
+it.  ‘org-roam-gt-refile’ closes that gap: it takes a ‘:target’ in the
+same syntax as ‘org-roam-capture-templates’ and refiles the subtree at
+point there.
+
+     (org-roam-gt-refile :target '(node+headline nil "Actions")
+                         :filter-fn #'my-project-p)
+
+   That prompts for a node — restricted to projects by the filter — and
+moves the subtree under that node's "Actions" heading, creating the
+heading if the node does not have one.  The destination is the same one
+the matching capture template would have used.
+
+   Keyword arguments:
+
+Keyword        Meaning
+-----------------------------------------------------------------------------
+‘:target’      Destination, in ‘:target’ syntax.  Defaults to ‘(node nil)’
+‘:node’        Destination node, for targets that would otherwise prompt
+‘:filter-fn’   Narrows the node prompt, as in ‘org-roam-node-find’
+‘:visit’       When non-nil, leave point at the destination
+
+   Only the node-based target types can be refiled to: ‘node’,
+‘nodefunc’, ‘node+headline’, ‘nodefunc+headline’, ‘node+olp’,
+‘node+olp+datetree’ and ‘nodefunc+olp+datetree’.  The ‘file’-based types
+describe where to create a file, which is not a question a refile can
+answer; they raise a user error.
+
+   The destination node is chosen in this order: a title or ID written
+into the target, then ‘:node’, then a prompt.  So a wrapper can pass the
+node it already has and skip the prompt entirely:
+
+     (defun my-refile-to-inbox ()
+       "Refile the subtree at point under the Inbox heading of my inbox node."
+       (interactive)
+       (org-roam-gt-refile :target '(node+headline "my-inbox-id" "Inbox")))
+
+   Creating a heading that was absent is reported on the echo area — for
+both refile and capture — since it usually means a typo in a target or a
+refile aimed at the wrong node.
+
+   After the move the destination file is saved, because org-roam
+updates its database on save; an unsaved destination holds content the
+database does not know about.
+
+   Unlike the capture extensions, this function installs no advice and
+works whether or not ‘org-roam-gt-mode’ is enabled.
+
+
+File: org-roam-gt.info,  Node: One path per file,  Next: Directory renames and deletions,  Prev: Refiling to a capture target,  Up: org-roam-gt
+
+1.7 One path per file
+=====================
+
+org-roam follows symlinks deliberately — every backend of
+‘org-roam--list-files’ passes ‘-L’ — and normalizes the result with
+‘expand-file-name’, which does not resolve them.  A symlink that leads
+back into ‘org-roam-directory’ therefore makes one file reachable under
+two paths.  Both are indexed, both carry the same node ID, and the
+second write of that ID is where duplicate-node errors come from.  The
+failure is quiet: the file sweep reports no error, and only some files
+break outright.
+
+   With ‘org-roam-gt-mode’ enabled, each file gets one path, in both
+directions:
+
+   • ‘org-roam-list-files’ is filtered so aliases collapse onto the
+     canonical path.  The result is always a subset of what the finder
+     reported — a path that was not listed is never introduced.
+   • ‘org-roam-db-update-file’ and ‘org-roam-db-clear-file’ canonicalize
+     their file argument, so visiting a file through an alias path and
+     saving it records the canonical path rather than reintroducing the
+     duplicate the sweep just removed.
+
+   The canonical path is the physical location when it lies inside
+‘org-roam-directory’.  When it lies outside — a link such as
+‘links/notes’ pointing at a tree kept elsewhere — the in-tree path is
+kept unchanged, since rewriting it would move the file out of org-roam's
+scope.  Where neither applies, the choice is deterministic (shortest
+path, then alphabetical), because an unstable choice would make org-roam
+treat the file as moved on alternating syncs.
+
+   ‘M-x org-roam-gt-report-aliased-files’ lists what is being collapsed,
+reading the file list with canonicalization disabled so the topology
+stays visible:
+
+     3511 files listed, 3326 distinct, 185 reachable by several paths
+
+     /roam/papers/lee2017understanding.org
+         also as: /roam/proj/2026-oss-and-ai/dmg/papers/lee2017understanding.org
+
+   Set ‘org-roam-gt-enable-path-canonicalization’ to nil to leave
+org-roam's behaviour untouched.
+
+
+File: org-roam-gt.info,  Node: Directory renames and deletions,  Next: Speed commands,  Prev: One path per file,  Up: org-roam-gt
+
+1.8 Directory renames and deletions
+===================================
+
+‘org-roam-db-autosync-mode’ keeps the database current by advising
+‘rename-file’ and ‘delete-file’, both of which act on one file.  A whole
+directory reaches neither: the rename handler tests its arguments with
+‘org-roam-file-p’, which a directory fails, and a directory is removed
+by ‘delete-directory’, which carries no advice at all.  Move or delete a
+directory of notes and every file it held keeps its rows, naming a path
+that no longer exists, until the next ‘org-roam-db-sync’.
+
+   With ‘org-roam-gt-mode’ enabled:
+
+   • Renaming a directory inside ‘org-roam-directory’ clears the rows
+     recorded under the old path and indexes the Org files found under
+     the new one.  A directory moved out of the tree is only cleared:
+     nothing outside ‘org-roam-directory’ is indexed.
+   • Deleting a directory clears the rows of the files that are actually
+     gone once the deletion returns, so a deletion that fails part way
+     does not cost live rows.  Trashed files count as deleted — they are
+     no longer in the tree.
+
+   Both operations are wrapped rather than followed, because the rows
+recorded under a directory can only be read while it still exists.
+Renaming a single file is left to org-roam's own advice, and a directory
+outside ‘org-roam-directory’ never reaches the database at all.
+
+   Set ‘org-roam-gt-track-directory-operations’ to nil to leave
+org-roam's behaviour untouched.
+
+
+File: org-roam-gt.info,  Node: Speed commands,  Next: Faster node search,  Prev: Directory renames and deletions,  Up: org-roam-gt
+
+1.9 Speed commands
 ==================
 
 When ‘org-roam-gt-transient.el’ is loaded (see the opt-in section
@@ -494,8 +651,8 @@ heading.
 
 File: org-roam-gt.info,  Node: Faster node search,  Next: Development,  Prev: Speed commands,  Up: org-roam-gt
 
-1.7 Faster node search
-======================
+1.10 Faster node search
+=======================
 
 When you invoke ‘org-roam-node-find’, Emacs has to build the list of
 every node in your database before you can start typing.  On a large
@@ -512,8 +669,8 @@ The original template is restored if you disable the mode.
 
 File: org-roam-gt.info,  Node: Development,  Next: MELPA submission,  Prev: Faster node search,  Up: org-roam-gt
 
-1.8 Development
-===============
+1.11 Development
+================
 
 The repository ships a ‘Makefile’ that drives every dev workflow via a
 project-local ‘.elpa/’ (nothing touches your user package directory):
@@ -533,8 +690,8 @@ on Emacs 30.1, 31.1, and snapshot.
 
 File: org-roam-gt.info,  Node: MELPA submission,  Prev: Development,  Up: org-roam-gt
 
-1.9 MELPA submission
-====================
+1.12 MELPA submission
+=====================
 
 The MELPA recipe lives at ‘melpa/org-roam-gt’; instructions for
 submitting it upstream are in ‘melpa/README.md’.
@@ -542,25 +699,28 @@ submitting it upstream are in ‘melpa/README.md’.
 
 Tag Table:
 Node: Top238
-Node: org-roam-gt1157
-Node: Installation3524
-Node: Selectively disabling features4419
-Node: Speed command menu (opt-in)5268
-Node: Hook-based extension API6321
-Node: New capture target types7140
-Node: (node TITLE-OR-ID)9489
-Node: (nodefunc FUNCTION)10233
-Node: (nodefunc+headline FUNCTION HEADLINE)10817
-Node: (node+headline TITLE-OR-ID HEADLINE)11371
-Node: (node+olp TITLE-OR-ID "h1" "h2" )12826
-Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )13515
-Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )14869
-Node: Template body loaded from a file15501
-Node: create-file guard16585
-Node: Speed commands18114
-Node: Faster node search18765
-Node: Development19600
-Node: MELPA submission20454
+Node: org-roam-gt1248
+Node: Installation4087
+Node: Selectively disabling features4982
+Node: Speed command menu (opt-in)6573
+Node: Hook-based extension API7626
+Node: New capture target types8445
+Node: (node TITLE-OR-ID)10794
+Node: (nodefunc FUNCTION)11538
+Node: (nodefunc+headline FUNCTION HEADLINE)12122
+Node: (node+headline TITLE-OR-ID HEADLINE)12676
+Node: (node+olp TITLE-OR-ID "h1" "h2" )14131
+Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )14820
+Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )16174
+Node: Template body loaded from a file16806
+Node: create-file guard17890
+Node: Refiling to a capture target19433
+Node: One path per file21981
+Node: Directory renames and deletions24184
+Node: Speed commands25846
+Node: Faster node search26511
+Node: Development27348
+Node: MELPA submission28204
 
 End Tag Table
 
