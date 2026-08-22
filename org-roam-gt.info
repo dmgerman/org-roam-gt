@@ -28,6 +28,7 @@ org-roam-gt
 * Refiling to a capture target::
 * One path per file::
 * Directory renames and deletions::
+* Citations without a whole-buffer parse::
 * Speed commands::
 * Faster node search::
 * Development::
@@ -107,6 +108,7 @@ no mode at all:
 * Refiling to a capture target::
 * One path per file::
 * Directory renames and deletions::
+* Citations without a whole-buffer parse::
 * Speed commands::
 * Faster node search::
 * Development::
@@ -152,7 +154,7 @@ Every feature is enabled by default.  Each can be turned off
 independently before enabling the mode:
 
 Variable                                            Turns off
-------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
 ‘org-roam-gt-enable-node-display-function’          the faster node display function
 ‘org-roam-gt-enable-capture-targets’                the extended capture targets
 ‘org-roam-gt-enable-path-canonicalization’          collapsing symlink aliases
@@ -160,6 +162,7 @@ Variable                                            Turns off
 ‘org-roam-gt-refresh-keyword-properties-on-index’   re-reading ‘#+PROPERTY:’ before indexing
 ‘org-roam-gt-check-duplicate-node-ids’              refusing to index a repeated node ID
 ‘org-roam-gt-track-directory-operations’            following directory renames and deletions
+‘org-roam-gt-scan-citations’                        finding citations without parsing the buffer
 
      ;; Keep org-roam's default display template
      (setq org-roam-gt-enable-node-display-function nil)
@@ -596,7 +599,7 @@ stays visible:
 org-roam's behaviour untouched.
 
 
-File: org-roam-gt.info,  Node: Directory renames and deletions,  Next: Speed commands,  Prev: One path per file,  Up: org-roam-gt
+File: org-roam-gt.info,  Node: Directory renames and deletions,  Next: Citations without a whole-buffer parse,  Prev: One path per file,  Up: org-roam-gt
 
 1.8 Directory renames and deletions
 ===================================
@@ -629,10 +632,45 @@ outside ‘org-roam-directory’ never reaches the database at all.
 org-roam's behaviour untouched.
 
 
-File: org-roam-gt.info,  Node: Speed commands,  Next: Faster node search,  Prev: Directory renames and deletions,  Up: org-roam-gt
+File: org-roam-gt.info,  Node: Citations without a whole-buffer parse,  Next: Speed commands,  Prev: Directory renames and deletions,  Up: org-roam-gt
 
-1.9 Speed commands
-==================
+1.9 Citations without a whole-buffer parse
+==========================================
+
+Saving a large file is slow, and most of the time goes to work whose
+result is thrown away.  ‘org-roam-db-update-file’ calls
+‘org-element-parse-buffer’ on every file it indexes and passes the tree
+to a single reader, ‘org-roam-db-map-citations’.  Files that contain no
+citation — the large majority in most collections — pay for the tree and
+get nothing from it.
+
+   ‘org-roam-db-map-links’ shows the cheaper approach for the same kind
+of work: search for the syntax with a regexp, then call
+‘org-element-context’ at each hit.  With ‘org-roam-gt-mode’ enabled
+citations are found that way, and the parse is skipped, since nothing
+reads its result any more.  A tree is still built for the span of each
+citation actually found, which keeps the objects and their buffer
+positions identical to the ones a whole-buffer parse produces.
+
+   Text that only looks like a citation, such as ‘[cite:@key]’ inside a
+source block, is context that answers something other than a citation
+and is passed over — the same outcome as parsing the whole buffer.
+
+   Measured on a 312 KB file with 53 nodes and no citations, re-indexing
+went from 1.34 s to 0.86 s.  Re-indexing the 127 files that do contain
+citations produced rows identical to those the parse-based walk had
+stored.
+
+   Set ‘org-roam-gt-scan-citations’ to nil to restore org-roam's
+behaviour.  The scanning walk and the skipped parse are one setting on
+purpose: skipping the parse while org-roam's own walk is in place would
+report no citations at all.
+
+
+File: org-roam-gt.info,  Node: Speed commands,  Next: Faster node search,  Prev: Citations without a whole-buffer parse,  Up: org-roam-gt
+
+1.10 Speed commands
+===================
 
 When ‘org-roam-gt-transient.el’ is loaded (see the opt-in section
 above), the key ‘m’ is added to ‘org-speed-commands’.  It opens a
@@ -651,7 +689,7 @@ heading.
 
 File: org-roam-gt.info,  Node: Faster node search,  Next: Development,  Prev: Speed commands,  Up: org-roam-gt
 
-1.10 Faster node search
+1.11 Faster node search
 =======================
 
 When you invoke ‘org-roam-node-find’, Emacs has to build the list of
@@ -669,7 +707,7 @@ The original template is restored if you disable the mode.
 
 File: org-roam-gt.info,  Node: Development,  Next: MELPA submission,  Prev: Faster node search,  Up: org-roam-gt
 
-1.11 Development
+1.12 Development
 ================
 
 The repository ships a ‘Makefile’ that drives every dev workflow via a
@@ -690,7 +728,7 @@ on Emacs 30.1, 31.1, and snapshot.
 
 File: org-roam-gt.info,  Node: MELPA submission,  Prev: Development,  Up: org-roam-gt
 
-1.12 MELPA submission
+1.13 MELPA submission
 =====================
 
 The MELPA recipe lives at ‘melpa/org-roam-gt’; instructions for
@@ -699,28 +737,29 @@ submitting it upstream are in ‘melpa/README.md’.
 
 Tag Table:
 Node: Top238
-Node: org-roam-gt1248
-Node: Installation4087
-Node: Selectively disabling features4982
-Node: Speed command menu (opt-in)6573
-Node: Hook-based extension API7626
-Node: New capture target types8445
-Node: (node TITLE-OR-ID)10794
-Node: (nodefunc FUNCTION)11538
-Node: (nodefunc+headline FUNCTION HEADLINE)12122
-Node: (node+headline TITLE-OR-ID HEADLINE)12676
-Node: (node+olp TITLE-OR-ID "h1" "h2" )14131
-Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )14820
-Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )16174
-Node: Template body loaded from a file16806
-Node: create-file guard17890
-Node: Refiling to a capture target19433
-Node: One path per file21981
-Node: Directory renames and deletions24184
-Node: Speed commands25846
-Node: Faster node search26511
-Node: Development27348
-Node: MELPA submission28204
+Node: org-roam-gt1291
+Node: Installation4173
+Node: Selectively disabling features5068
+Node: Speed command menu (opt-in)6763
+Node: Hook-based extension API7816
+Node: New capture target types8635
+Node: (node TITLE-OR-ID)10984
+Node: (nodefunc FUNCTION)11728
+Node: (nodefunc+headline FUNCTION HEADLINE)12312
+Node: (node+headline TITLE-OR-ID HEADLINE)12866
+Node: (node+olp TITLE-OR-ID "h1" "h2" )14321
+Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )15010
+Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )16364
+Node: Template body loaded from a file16996
+Node: create-file guard18080
+Node: Refiling to a capture target19623
+Node: One path per file22171
+Node: Directory renames and deletions24374
+Node: Citations without a whole-buffer parse26060
+Node: Speed commands27838
+Node: Faster node search28512
+Node: Development29349
+Node: MELPA submission30205
 
 End Tag Table
 

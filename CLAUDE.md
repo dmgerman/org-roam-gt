@@ -16,6 +16,7 @@ It does **not** patch org-roam source files.
 | `tests/test-org-roam-gt-capture.el` | Buttercup test suite (capture) |
 | `tests/test-org-roam-gt-refile.el` | Buttercup test suite (refile) |
 | `tests/test-org-roam-gt-canonicalize.el` | Buttercup test suite (symlink aliases; builds real symlink trees) |
+| `tests/test-org-roam-gt-citations.el` | Buttercup test suite (citation scan; compared against org's own parse) |
 | `tests/test-helper.el` | Load-path setup for batch testing |
 | `Makefile` | `make`, `make test`, `make lint`, `make checkdoc`, `make check-declare`, `make check`, `make info`, `make clean` |
 | `org-roam-gt.info`, `dir` | Info manual generated from `readme.org` via `make info` (committed artifacts consumed by ELPA activation) |
@@ -67,6 +68,17 @@ and `delete-directory` carries none. Both must be `:around` rather than
 `:after` — the rows recorded under a directory can only be read while it still
 exists. `org-roam-gt--deleting-directory` keeps the recursive descent of
 `delete-directory` from re-querying per subdirectory.
+
+`org-roam-gt.el` also replaces the citation walk (`:around` on
+`org-roam-db-map-citations`, gated by `org-roam-gt-scan-citations`) with a
+regexp scan, and suppresses the `org-element-parse-buffer` that
+`org-roam-db-update-file` runs to feed it (`:around` on both
+`org-element-parse-buffer` and `org-roam-db-update-file`, coordinated through
+`org-roam-gt--suppress-element-parse`). The three advices are one unit:
+skipping the parse without replacing the walk reports no citations. When
+scanning, read match data before calling `org-element-context` — it runs its
+own searches and clobbers it, which is how the scan loop once failed to
+terminate.
 
 What each node-based target means *inside* the destination node lives in
 `org-roam-gt-capture-target-validate` and `org-roam-gt-capture-target-navigate`

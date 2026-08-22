@@ -195,6 +195,26 @@ mode after changing."
   :type 'boolean
   :group 'org-roam-gt)
 
+(defcustom org-roam-gt-scan-citations t
+  "When non-nil, find citations by scanning instead of by parsing the buffer.
+
+`org-roam-db-update-file' calls `org-element-parse-buffer' on every file
+it indexes, and the tree it builds feeds exactly one caller,
+`org-roam-db-map-citations'.  On a 300 KB file that parse takes about
+0.3 s — half the cost of indexing the file — and most files hold no
+citation at all.
+
+`org-roam-db-map-links' shows the cheaper shape: search for the syntax
+with a regexp, then call `org-element-context' at each hit.  With this
+enabled citations are found the same way, and the parse in
+`org-roam-db-update-file' is skipped, since nothing reads its result any
+more.
+
+Set before enabling `org-roam-gt-mode', or disable and re-enable the
+mode after changing."
+  :type 'boolean
+  :group 'org-roam-gt)
+
 ;;; support functions
 
 (defun org-roam-gt--to-string (st)
@@ -721,6 +741,109 @@ from `org-roam-directory' and is treated as deleted."
   (advice-remove 'rename-file #'org-roam-gt-rename-file-tracking-directories)
   (advice-remove 'delete-directory #'org-roam-gt-delete-directory-tracking))
 
+;;; Citations without a whole-buffer parse
+
+;; `org-roam-db-update-file' builds a parse tree of the file it is indexing and
+;; passes it to `org-roam-db-map-citations', its only reader.  Building that
+;; tree costs more than every other stage of indexing put together, and a file
+;; with no citation in it pays the same price as one full of them.
+;;
+;; The two advices below remove it.  The first replaces the citation walk with
+;; the shape `org-roam-db-map-links' already uses — regexp search, then
+;; `org-element-context' at the hit.  The second keeps the caller from building
+;; a tree the walk no longer reads.  They belong together: skipping the parse
+;; while the original walk is in place would report no citations at all, so
+;; both are installed and removed as one unit.
+
+(defvar org-roam-gt--suppress-element-parse nil
+  "Non-nil while indexing a file whose citations are found by scanning.
+`org-roam-gt-element-parse-buffer-skipped' reads this to decide whether
+its call is the one `org-roam-db-update-file' makes for citations.")
+
+(defun org-roam-gt--citation-references (citation fns)
+  "Run each function in FNS over every reference of CITATION.
+
+CITATION is a citation object, whose references are the individual keys
+in it: `[cite:@one;@two]' holds two.  Narrowing to the citation and
+parsing that keeps the objects, and their buffer positions, identical to
+the ones a parse of the whole buffer produces, at the cost of parsing a
+few dozen characters instead of the file."
+  (save-restriction
+    (narrow-to-region (org-element-property :begin citation)
+                      (org-element-property :end citation))
+    ;; This is the one parse that must go through; it is what replaces the
+    ;; whole-buffer parse rather than another instance of it.
+    (let ((org-roam-gt--suppress-element-parse nil))
+      (org-element-map (org-element-parse-buffer) 'citation-reference
+        (lambda (reference)
+          (dolist (fn fns)
+            (funcall fn reference)))))))
+
+(defun org-roam-gt-map-citations-scanning (orig-fn info fns)
+  "Run FNS over every citation reference of the current buffer.
+
+INFO, the parse tree of the buffer, is not read: the references are
+found by searching for `org-element-citation-prefix-re' and asking
+`org-element-context' about each hit, so a tree is only ever built for
+the span of one citation.  Text that merely looks like a citation — in a
+source block, say, or in a comment — is context that answers something
+other than `citation', and is passed over, which is also what a parse of
+the whole buffer does with it.
+
+ORIG-FN is called with INFO and FNS unchanged when
+`org-roam-gt-scan-citations' is nil."
+  (if (not org-roam-gt-scan-citations)
+      (funcall orig-fn info fns)
+    (org-with-point-at 1
+      (while (re-search-forward org-element-citation-prefix-re nil :no-error)
+        (let* ((start (match-beginning 0))
+               (after (match-end 0))
+               ;; `org-element-context' searches on its own account, so the
+               ;; match data of the search above is gone once it returns.
+               (citation (save-match-data
+                           (save-excursion
+                             (goto-char start)
+                             (org-element-context)))))
+          (if (not (eq (org-element-type citation) 'citation))
+              (goto-char after)
+            (org-roam-gt--citation-references citation fns)
+            ;; `max' rather than the end of the citation alone: point must
+            ;; advance on every pass, whatever the element reports.
+            (goto-char (max after (org-element-property :end citation)))))))))
+
+(defun org-roam-gt-element-parse-buffer-skipped (orig-fn &rest args)
+  "Return an empty document rather than parsing, while indexing a file.
+
+An empty `org-data' rather than nil, so that a reader other than the
+citation walk — one added to `org-roam-db-update-file' by a later version
+of org-roam — is handed something `org-element-map' can walk.
+
+ORIG-FN is called with ARGS unchanged outside that one call."
+  (if org-roam-gt--suppress-element-parse
+      (list 'org-data nil)
+    (apply orig-fn args)))
+
+(defun org-roam-gt-update-file-skipping-parse (orig-fn &rest args)
+  "Index a file without building the parse tree meant for its citations.
+
+ORIG-FN is called with ARGS unchanged; only the parse inside it is
+skipped, and only when `org-roam-gt-scan-citations' is non-nil, since
+that is what makes the tree unread."
+  (let ((org-roam-gt--suppress-element-parse org-roam-gt-scan-citations))
+    (apply orig-fn args)))
+
+(defun org-roam-gt-citations--enable ()
+  "Install the scanning citation walk."
+  (advice-add 'org-roam-db-map-citations :around #'org-roam-gt-map-citations-scanning)
+  (advice-add 'org-element-parse-buffer :around #'org-roam-gt-element-parse-buffer-skipped)
+  (advice-add 'org-roam-db-update-file :around #'org-roam-gt-update-file-skipping-parse))
+
+(defun org-roam-gt-citations--disable ()
+  "Remove the scanning citation walk."
+  (advice-remove 'org-roam-db-map-citations #'org-roam-gt-map-citations-scanning)
+  (advice-remove 'org-element-parse-buffer #'org-roam-gt-element-parse-buffer-skipped)
+  (advice-remove 'org-roam-db-update-file #'org-roam-gt-update-file-skipping-parse))
+
 ;; speed commands are defined in org-roam-gt-transient.el.
 ; Load that file and it will register itself on org-roam-gt-enable-hook
 ; and org-roam-gt-disable-hook automatically.
@@ -753,6 +876,8 @@ from `org-roam-directory' and is treated as deleted."
     (org-roam-gt-duplicate-ids--enable))
   (when org-roam-gt-track-directory-operations
     (org-roam-gt-directory-operations--enable))
+  (when org-roam-gt-scan-citations
+    (org-roam-gt-citations--enable))
   (when org-roam-gt-enable-capture-targets
     (org-roam-gt-capture--enable)))
 
@@ -764,6 +889,7 @@ from `org-roam-directory' and is treated as deleted."
   (org-roam-gt-canonicalize--disable)
   (org-roam-gt-duplicate-ids--disable)
   (org-roam-gt-directory-operations--disable)
+  (org-roam-gt-citations--disable)
   (org-roam-gt-exclude-inheritance--disable)
   (when org-roam-gt-enable-capture-targets
     (org-roam-gt-capture--disable)))

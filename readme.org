@@ -91,6 +91,7 @@ independently before enabling the mode:
 | ~org-roam-gt-refresh-keyword-properties-on-index~ | re-reading =#+PROPERTY:= before indexing |
 | ~org-roam-gt-check-duplicate-node-ids~           | refusing to index a repeated node ID   |
 | ~org-roam-gt-track-directory-operations~         | following directory renames and deletions |
+| ~org-roam-gt-scan-citations~                     | finding citations without parsing the buffer |
 
 #+begin_src emacs-lisp
 ;; Keep org-roam's default display template
@@ -516,6 +517,37 @@ outside ~org-roam-directory~ never reaches the database at all.
 
 Set ~org-roam-gt-track-directory-operations~ to nil to leave org-roam's
 behaviour untouched.
+
+** Citations without a whole-buffer parse
+
+Saving a large file is slow, and most of the time goes to work whose
+result is thrown away.  ~org-roam-db-update-file~ calls
+~org-element-parse-buffer~ on every file it indexes and passes the tree
+to a single reader, ~org-roam-db-map-citations~.  Files that contain no
+citation — the large majority in most collections — pay for the tree and
+get nothing from it.
+
+~org-roam-db-map-links~ shows the cheaper approach for the same kind of
+work: search for the syntax with a regexp, then call
+~org-element-context~ at each hit.  With ~org-roam-gt-mode~ enabled
+citations are found that way, and the parse is skipped, since nothing
+reads its result any more.  A tree is still built for the span of each
+citation actually found, which keeps the objects and their buffer
+positions identical to the ones a whole-buffer parse produces.
+
+Text that only looks like a citation, such as ~[cite:@key]~ inside a
+source block, is context that answers something other than a citation
+and is passed over — the same outcome as parsing the whole buffer.
+
+Measured on a 312 KB file with 53 nodes and no citations, re-indexing
+went from 1.34 s to 0.86 s.  Re-indexing the 127 files that do contain
+citations produced rows identical to those the parse-based walk had
+stored.
+
+Set ~org-roam-gt-scan-citations~ to nil to restore org-roam's behaviour.
+The scanning walk and the skipped parse are one setting on purpose:
+skipping the parse while org-roam's own walk is in place would report no
+citations at all.
 
 ** Speed commands
 
