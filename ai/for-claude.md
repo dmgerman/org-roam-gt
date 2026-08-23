@@ -187,6 +187,36 @@ passes `:props (list :filter-fn …)`, which merges into the template plist and
 is read by `--find-node` — the same path the template's own key takes, subject
 to the merge-order gotcha below.
 
+## `org-roam-capture-preface-hook` bypass
+
+`org-roam-capture--prepare-buffer` runs the preface hook *instead of*
+`--setup-target-location`:
+
+```elisp
+(let ((id (cond ((run-hook-with-args-until-success 'org-roam-capture-preface-hook))
+                (t (org-roam-capture--setup-target-location)))))
+```
+
+Both the target dispatch and the `:create-file` check are advice on that
+function, so a hook returning non-nil discards them with no diagnostic: the
+capture succeeds and the entry lands wherever the hook left point.
+
+`--prepare-buffer-guard` (`:around` on `--prepare-buffer`) detects this after
+the fact — it binds `--target-location-ran` to nil, and `--dispatch` sets it.
+Detection is post-hoc rather than a refusal whenever a hook is installed,
+because `run-hook-with-args-until-success` means a hook returning nil is
+harmless and common. The error is raised before `org-capture` inserts text.
+`--template-needs-dispatch-p` reads `:target` through `org-roam-capture--get`
+rather than `--get-target`, which signals on a missing target — not this
+guard's error to raise.
+
+Testing this needs a hook that positions the buffer, as a real one does. A
+hook that only returns an ID makes the capture die on an upstream
+`cl-assert` in `--adjust-point-for-capture-type`, so the spec passes with the
+guard removed. The spec therefore points the hook at a *different* heading
+than the template targets, and the negative control is that the capture
+returns `t` and writes the entry when the guard is not installed.
+
 ### `:filter-fn` threading — key gotchas
 
 `:filter-fn` is a capture-template property that narrows the pool of nodes

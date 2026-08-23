@@ -548,9 +548,16 @@ navigated/created.  Returns point at the datetree entry."
 Narrower than `org-roam-gt-capture-target-node-types': plain `node' belongs to
 org-roam upstream during capture, so the dispatch must not intercept it.")
 
+(defvar org-roam-gt-capture--target-location-ran nil
+  "Non-nil once `--dispatch' has run for the current capture.
+Bound to nil by `--prepare-buffer-guard' around each capture and set by
+`--dispatch'.  The guard reads it to detect that
+`org-roam-capture--setup-target-location' never ran.")
+
 (defun org-roam-gt-capture--dispatch (orig-fn)
   "Around advice for `org-roam-capture--setup-target-location'.
 Handles new target types; calls ORIG-FN for standard types."
+  (setq org-roam-gt-capture--target-location-ran t)
   (let* ((target-spec (org-roam-capture--get-target))
          (target-type (car target-spec)))
     (if (not (memq target-type org-roam-gt-capture--node-target-types))
@@ -575,6 +582,44 @@ Handles new target types; calls ORIG-FN for standard types."
           (prog1
               (org-id-get)
             (run-hooks 'org-roam-capture-new-node-hook)))))))
+
+;;; Guard against org-roam-capture-preface-hook bypassing target setup
+
+(defun org-roam-gt-capture--template-needs-dispatch-p ()
+  "Return non-nil when the current template relies on our target-location advices.
+That is: its `:target' names one of our own target types, or it sets
+`:create-file', which `--validate-create-file' enforces.  Reads
+`:target' directly rather than through `org-roam-capture--get-target',
+which signals when a template has none — here a missing target is not
+this function's error to raise."
+  (or (memq (car-safe (org-roam-capture--get :target))
+            org-roam-gt-capture--node-target-types)
+      (org-capture-get :create-file)
+      nil))
+
+(defun org-roam-gt-capture--prepare-buffer-guard (orig-fn &rest args)
+  "Around advice on `org-roam-capture--prepare-buffer'.
+Upstream runs `org-roam-capture-preface-hook' *instead of*
+`org-roam-capture--setup-target-location' when a hook function returns
+non-nil.  Our target types and `:create-file' are implemented as advice
+on that function, so a preface hook discards them: the capture would
+otherwise succeed and place the entry wherever the hook left point,
+with the template's declarations silently ignored.
+
+Detect the bypass after the fact rather than refusing whenever a hook
+is installed — a hook function that returns nil is harmless, and
+`run-hook-with-args-until-success' makes that the common case.  The
+error is raised before `org-capture' inserts any text, so nothing has
+been written to the destination.
+
+ORIG-FN and ARGS are the advised function and its arguments."
+  (let ((org-roam-gt-capture--target-location-ran nil))
+    (prog1 (apply orig-fn args)
+      (when (and (not org-roam-gt-capture--target-location-ran)
+                 (org-roam-gt-capture--template-needs-dispatch-p))
+        (user-error "Org-roam-gt-capture: `org-roam-capture-preface-hook' \
+bypassed target setup, so the template's :target and :create-file were \
+ignored")))))
 
 ;;; Fix for org-roam plain-template placement bug
 
@@ -617,7 +662,9 @@ for the full report."
   (advice-add 'org-roam-capture--fill-template
               :filter-args #'org-roam-gt-capture--fill-template-filter)
   (advice-add 'org-roam-capture--adjust-point-for-capture-type
-              :around #'org-roam-gt-capture--adjust-point-dispatch))
+              :around #'org-roam-gt-capture--adjust-point-dispatch)
+  (advice-add 'org-roam-capture--prepare-buffer
+              :around #'org-roam-gt-capture--prepare-buffer-guard))
 
 (defun org-roam-gt-capture--disable ()
   "Disable the org-roam-gt capture extension."
@@ -632,7 +679,9 @@ for the full report."
   (advice-remove 'org-roam-capture--fill-template
                  #'org-roam-gt-capture--fill-template-filter)
   (advice-remove 'org-roam-capture--adjust-point-for-capture-type
-                 #'org-roam-gt-capture--adjust-point-dispatch))
+                 #'org-roam-gt-capture--adjust-point-dispatch)
+  (advice-remove 'org-roam-capture--prepare-buffer
+                 #'org-roam-gt-capture--prepare-buffer-guard))
 
 (provide 'org-roam-gt-capture)
 

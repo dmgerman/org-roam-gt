@@ -37,7 +37,7 @@ It does **not** patch org-roam source files.
 
 ## Architecture in one paragraph
 
-`org-roam-gt-capture.el` installs six pieces of advice on org-roam capture
+`org-roam-gt-capture.el` installs seven pieces of advice on org-roam capture
 internals. `:around` on `org-roam-capture--setup-target-location` intercepts
 six new `:target` types (`nodefunc`, `nodefunc+headline`, `node+headline`,
 `node+olp`, `node+olp+datetree`, `nodefunc+olp+datetree`) and delegates
@@ -53,7 +53,10 @@ up-front `org-roam-node-read` — templates that need a node prompt only when
 the target is set up, matching the intent of the pre-reset fork. `:filter-args`
 on `org-roam-capture-` gives the same deferral to third-party callers that
 invoke it with no `:node`, by injecting the same stub node rather than
-prompting. Templates
+prompting. `:around` on `org-roam-capture--prepare-buffer` errors when
+`org-roam-capture-preface-hook` returned non-nil and thereby skipped
+`--setup-target-location`, which would silently discard our target types and
+`:create-file`. Templates
 live in the standard `org-roam-capture-templates` variable unchanged.
 
 `org-roam-gt.el` also installs three pieces of advice giving each file one

@@ -660,6 +660,95 @@ PLIST is a plist of keys and values to inject."
               (org-roam-gt-capture--disable))))
         (expect seen-filter :to-equal my-filter)))))
 
+;;; Tests for --prepare-buffer-guard
+
+;; `org-roam-capture-preface-hook' runs *instead of*
+;; `org-roam-capture--setup-target-location' when a hook function returns
+;; non-nil, taking both of our advices on that function with it.  Without the
+;; guard the capture succeeds and the template's :target and :create-file are
+;; silently ignored.
+
+(describe "org-roam-gt-capture--prepare-buffer-guard"
+
+  (it "errors when target setup was bypassed and the template needs it"
+    (let ((org-capture-plist (list :create-file 'no))
+          (org-roam-gt-capture--target-location-ran t))
+      (expect (org-roam-gt-capture--prepare-buffer-guard (lambda () "id"))
+              :to-throw 'user-error)))
+
+  (it "stays silent when target setup was bypassed but the template does not need it"
+    (let ((org-capture-plist (list :org-roam (list :target '(file "x.org")))))
+      (expect (org-roam-gt-capture--prepare-buffer-guard (lambda () "id"))
+              :to-equal "id")))
+
+  (it "stays silent when the dispatch advice ran"
+    (let ((org-capture-plist (list :create-file 'no)))
+      (expect (org-roam-gt-capture--prepare-buffer-guard
+               (lambda () (setq org-roam-gt-capture--target-location-ran t) "id"))
+              :to-equal "id")))
+
+  (it "detects a bypassed org-roam-gt target type"
+    (let ((org-capture-plist
+           (list :org-roam (list :target '(node+headline "id" "Head")))))
+      (expect (org-roam-gt-capture--prepare-buffer-guard (lambda () "id"))
+              :to-throw 'user-error)))
+
+  (it "does not leak its binding of the ran flag to the caller"
+    (let ((org-capture-plist nil)
+          (org-roam-gt-capture--target-location-ran 'outer))
+      (org-roam-gt-capture--prepare-buffer-guard
+       (lambda () (setq org-roam-gt-capture--target-location-ran t) "id"))
+      (expect org-roam-gt-capture--target-location-ran :to-equal 'outer)))
+
+  (it "returns the original's value untouched when nothing is wrong"
+    (let ((org-capture-plist nil))
+      (expect (org-roam-gt-capture--prepare-buffer-guard
+               (lambda (&rest args) args) 1 2)
+              :to-equal '(1 2))))
+
+  ;; End-to-end: the unit tests above call the guard directly, which does not
+  ;; show that the error survives `org-capture's own error handling.  The hook
+  ;; here positions the buffer itself, as a real preface hook does — a hook
+  ;; that only returns an ID makes the capture fail on its own, which would
+  ;; make this spec pass with the guard removed.
+  (it "aborts a real capture whose target setup a preface hook bypassed"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: preface-id\n:END:\n#+title: T\n\n* Emails\n* Other\n"
+      (let* ((node (org-roam-gt-test--file-level-node "preface-id" fixture-file))
+             ;; Positions at a *different* heading than the template's target,
+             ;; so without the guard the capture succeeds and lands under
+             ;; "Other" rather than "Emails" — the silent misplacement.
+             (org-roam-capture-preface-hook
+              (list (lambda ()
+                      (set-buffer (org-capture-target-buffer fixture-file))
+                      (widen)
+                      (goto-char (point-min))
+                      (re-search-forward "^\\* Other")
+                      (beginning-of-line)
+                      "preface-id"))))
+        (cl-letf (((symbol-function 'org-roam-node-from-id)
+                   (lambda (id) (when (string= id (org-roam-node-id node)) node)))
+                  ((symbol-function 'org-roam-db-update-file)
+                   (lambda (&rest _) nil)))
+          (let ((org-roam-capture-templates
+                 (list '("t" "test" entry "* SENTINEL-preface\nbody"
+                         :target (node+headline "preface-id" "Emails")
+                         :immediate-finish t :unnarrowed t))))
+            (unwind-protect
+                (progn
+                  (org-roam-gt-capture--enable)
+                  (expect (org-roam-capture- :node node :keys "t")
+                          :to-throw 'user-error))
+              (org-roam-gt-capture--disable))))
+        ;; Without the guard the capture succeeds and writes the entry at
+        ;; point-max instead of under "Emails".
+        (when-let* ((buf (find-buffer-visiting fixture-file)))
+          (with-current-buffer buf (set-buffer-modified-p nil))
+          (kill-buffer buf))
+        (with-temp-buffer
+          (insert-file-contents fixture-file)
+          (expect (buffer-string) :not :to-match "SENTINEL-preface"))))))
+
 ;;; Tests for --capture-dashed-ensure-node
 
 (describe "org-roam-gt-capture--capture-dashed-ensure-node"
