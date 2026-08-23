@@ -166,6 +166,27 @@ needs one:
 Templates that hit a fixed node (`(node "id")`, `(nodefunc fn)`, `(node+headline
 "id" …)`, and their olp/datetree variants) never prompt at all.
 
+### The same deferral for `org-roam-capture-`
+
+`org-roam-capture-` is a second entry point, used by third-party callers
+(`ai-tracks`) that build a template list and invoke it directly with no
+`:node`.  Upstream signals `wrong-type-argument org-roam-node nil` on that,
+so `--capture-dashed-ensure-node` (`:filter-args`) injects the same stub node
+`--capture-no-prompt` uses.
+
+It must inject rather than prompt.  A prompt here runs before any template has
+been selected, so `org-capture-get` has no plist and the template's
+`:filter-fn` cannot be read — the caller got an unfiltered prompt whatever the
+template declared, and target setup then reused that node, so the declared
+filter was inert.  Deferring also skips the prompt entirely for a template
+whose target names a fixed node, where `--position-at-node` overwrites
+`org-roam-capture--node` and the answer would be discarded.
+
+A caller that wants to narrow the prompt from outside the template still
+passes `:props (list :filter-fn …)`, which merges into the template plist and
+is read by `--find-node` — the same path the template's own key takes, subject
+to the merge-order gotcha below.
+
 ### `:filter-fn` threading — key gotchas
 
 `:filter-fn` is a capture-template property that narrows the pool of nodes

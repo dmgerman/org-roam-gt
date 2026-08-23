@@ -162,19 +162,20 @@ Upstream `org-roam-capture-' requires a non-nil `org-roam-node' and
 signals `wrong-type-argument org-roam-node nil' otherwise.  Third-party
 callers (for example `ai-tracks') that invoke `org-roam-capture-'
 without a `:node' argument therefore break.  This filter canonicalises
-that entry point: when `:node' is missing or nil, prompt the user via
-`org-roam-node-read' (honouring `:filter-fn' from `:props' if present)
-and inject the chosen node back into ARGS.  Callers that pass a real
-node see ARGS unchanged, so our own `--capture-no-prompt' stub node
-still flows through untouched."
+that entry point: when `:node' is missing or nil, inject the same stub
+node `--capture-no-prompt' uses, deferring node selection to target
+setup.
+
+Deferring rather than prompting here is required for the template's
+`:filter-fn' to be honoured: no template has been chosen yet at this
+point, so `org-capture-get' has nothing to read.  It also skips the
+prompt entirely for templates whose target names a fixed node, whose
+answer target setup would discard.
+
+Callers that pass a real node see ARGS unchanged."
   (if (plist-get args :node)
       args
-    (let* ((props (plist-get args :props))
-           (filter-fn (plist-get props :filter-fn))
-           (node (org-roam-node-read nil filter-fn)))
-      (setf (org-roam-node-id node)
-            (or (org-roam-node-id node) (org-id-new)))
-      (plist-put (copy-sequence args) :node node))))
+    (plist-put (copy-sequence args) :node (org-roam-node-create))))
 
 (defun org-roam-gt-capture--capture-no-prompt (_orig-fn &optional goto keys &rest kwargs)
   "Around advice for `org-roam-capture'.

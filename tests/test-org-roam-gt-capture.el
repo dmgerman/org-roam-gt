@@ -625,6 +625,39 @@ PLIST is a plist of keys and values to inject."
                   (org-roam-gt-capture--enable)
                   (org-roam-capture nil "t"))
               (org-roam-gt-capture--disable))))
+        (expect seen-filter :to-equal my-filter))))
+
+  ;; `org-roam-capture-' called bare, with neither :node nor :props, is the
+  ;; entry point third-party callers such as `ai-tracks' use.  It must reach
+  ;; the same prompt as `org-roam-capture' above: when this advice prompted
+  ;; for a node itself, the prompt ran before any template was selected and
+  ;; the template's :filter-fn was silently ignored.
+  (it "passes the template's :filter-fn to org-roam-node-read for a bare `org-roam-capture-'"
+    (org-roam-gt-test-with-capture-fixture
+        ":PROPERTIES:\n:ID: filter-id\n:END:\n#+title: T\n\n* Emails\n"
+      (let* ((node (org-roam-gt-test--file-level-node "filter-id" fixture-file))
+             (my-filter (lambda (n) (member (org-roam-node-todo n) '("PROJ" "AREA"))))
+             (seen-filter nil))
+        (cl-letf (((symbol-function 'org-roam-node-from-id)
+                   (lambda (id) (when (string= id (org-roam-node-id node)) node)))
+                  ((symbol-function 'org-roam-node-from-title-or-alias)
+                   (lambda (_) nil))
+                  ((symbol-function 'org-roam-node-read)
+                   (lambda (&optional _initial filter-fn &rest _)
+                     (setq seen-filter filter-fn)
+                     node))
+                  ((symbol-function 'org-roam-db-update-file)
+                   (lambda (&rest _) nil)))
+          (let ((org-roam-capture-templates
+                 (list `("t" "test" entry "* SENTINEL-filter\nbody"
+                         :target (node+headline nil "Emails")
+                         :filter-fn ,my-filter
+                         :immediate-finish t :unnarrowed t))))
+            (unwind-protect
+                (progn
+                  (org-roam-gt-capture--enable)
+                  (org-roam-capture-))
+              (org-roam-gt-capture--disable))))
         (expect seen-filter :to-equal my-filter)))))
 
 ;;; Tests for --capture-dashed-ensure-node
@@ -637,35 +670,28 @@ PLIST is a plist of keys and values to inject."
       (expect (org-roam-gt-capture--capture-dashed-ensure-node args)
               :to-equal args)))
 
-  (it "prompts for a node when :node is nil"
-    (let* ((prompted (org-roam-node-create :id "prompted-id" :title "Prompted"))
-           (calls 0))
+  (it "injects a stub node when :node is nil"
+    (let ((calls 0))
       (cl-letf (((symbol-function 'org-roam-node-read)
-                 (lambda (&rest _) (setq calls (1+ calls)) prompted)))
+                 (lambda (&rest _) (setq calls (1+ calls)) nil)))
         (let* ((args (list :goto nil :node nil))
                (result (org-roam-gt-capture--capture-dashed-ensure-node args)))
-          (expect calls :to-equal 1)
-          (expect (plist-get result :node) :to-equal prompted)))))
+          (expect calls :to-equal 0)
+          (expect (org-roam-gt-capture--stub-node-p (plist-get result :node))
+                  :to-be-truthy)))))
 
-  (it "prompts for a node when :node key is absent"
-    (let* ((prompted (org-roam-node-create :id "prompted-id" :title "Prompted"))
-           (calls 0))
+  (it "injects a stub node when :node key is absent"
+    (let ((calls 0))
       (cl-letf (((symbol-function 'org-roam-node-read)
-                 (lambda (&rest _) (setq calls (1+ calls)) prompted)))
+                 (lambda (&rest _) (setq calls (1+ calls)) nil)))
         (let ((result (org-roam-gt-capture--capture-dashed-ensure-node nil)))
-          (expect calls :to-equal 1)
-          (expect (plist-get result :node) :to-equal prompted)))))
+          (expect calls :to-equal 0)
+          (expect (org-roam-gt-capture--stub-node-p (plist-get result :node))
+                  :to-be-truthy)))))
 
-  (it "threads :filter-fn from :props into org-roam-node-read"
-    (let* ((prompted (org-roam-node-create :id "id" :title "T"))
-           (my-filter (lambda (_) t))
-           (seen-filter nil))
-      (cl-letf (((symbol-function 'org-roam-node-read)
-                 (lambda (_initial filter-fn &rest _)
-                   (setq seen-filter filter-fn)
-                   prompted)))
-        (org-roam-gt-capture--capture-dashed-ensure-node
-         (list :node nil :props (list :filter-fn my-filter)))
-        (expect seen-filter :to-equal my-filter)))))
+  (it "does not mutate the ARGS list it was given"
+    (let ((args (list :goto nil :node nil)))
+      (org-roam-gt-capture--capture-dashed-ensure-node args)
+      (expect (plist-get args :node) :to-be nil))))
 
 ;;; test-org-roam-gt-capture.el ends here
