@@ -21,6 +21,7 @@ org-roam-gt
 org-roam-gt
 
 * Installation::
+* Version::
 * Selectively disabling features::
 * New capture target types::
 * Template body loaded from a file::
@@ -101,6 +102,7 @@ no mode at all:
 * Menu:
 
 * Installation::
+* Version::
 * Selectively disabling features::
 * New capture target types::
 * Template body loaded from a file::
@@ -115,7 +117,7 @@ no mode at all:
 * MELPA submission::
 
 
-File: org-roam-gt.info,  Node: Installation,  Next: Selectively disabling features,  Up: org-roam-gt
+File: org-roam-gt.info,  Node: Installation,  Next: Version,  Up: org-roam-gt
 
 1.1 Installation
 ================
@@ -145,9 +147,20 @@ extra to install.  Just ‘(require 'org-roam-gt-transient)’ before
 enabling the mode.
 
 
-File: org-roam-gt.info,  Node: Selectively disabling features,  Next: New capture target types,  Prev: Installation,  Up: org-roam-gt
+File: org-roam-gt.info,  Node: Version,  Next: Selectively disabling features,  Prev: Installation,  Up: org-roam-gt
 
-1.2 Selectively disabling features
+1.2 Version
+===========
+
+‘M-x org-roam-gt-version’ reports the version of org-roam-gt in the echo
+area.  Called from Lisp, ‘(org-roam-gt-version)’ returns it as a string
+without displaying it; the same value is also held in the constant
+‘org-roam-gt-version’.
+
+
+File: org-roam-gt.info,  Node: Selectively disabling features,  Next: New capture target types,  Prev: Version,  Up: org-roam-gt
+
+1.3 Selectively disabling features
 ==================================
 
 Every feature is enabled by default.  Each can be turned off
@@ -187,7 +200,7 @@ re-enable:
 
 File: org-roam-gt.info,  Node: Speed command menu (opt-in),  Next: Hook-based extension API,  Up: Selectively disabling features
 
-1.2.1 Speed command menu (opt-in)
+1.3.1 Speed command menu (opt-in)
 ---------------------------------
 
 The speed command menu is self-contained in ‘org-roam-gt-transient.el’.
@@ -211,7 +224,7 @@ register and de-register itself with the mode.
 
 File: org-roam-gt.info,  Node: Hook-based extension API,  Prev: Speed command menu (opt-in),  Up: Selectively disabling features
 
-1.2.2 Hook-based extension API
+1.3.2 Hook-based extension API
 ------------------------------
 
 ‘org-roam-gt-mode’ exposes two hooks for extensions that want to
@@ -232,7 +245,7 @@ Hook                         Fired when
 
 File: org-roam-gt.info,  Node: New capture target types,  Next: Template body loaded from a file,  Prev: Selectively disabling features,  Up: org-roam-gt
 
-1.3 New capture target types
+1.4 New capture target types
 ============================
 
 The six new target types work alongside all existing ones.  Your current
@@ -279,7 +292,7 @@ Target type               Destination node            Position within node
 
 File: org-roam-gt.info,  Node: (node TITLE-OR-ID),  Next: (nodefunc FUNCTION),  Up: New capture target types
 
-1.3.1 ‘(node TITLE-OR-ID)’
+1.4.1 ‘(node TITLE-OR-ID)’
 --------------------------
 
 The standard ‘node’ target always prompts, even when you know the
@@ -302,7 +315,7 @@ still prompts, just as the standard ‘node’ does.
 
 File: org-roam-gt.info,  Node: (nodefunc FUNCTION),  Next: (nodefunc+headline FUNCTION HEADLINE),  Prev: (node TITLE-OR-ID),  Up: New capture target types
 
-1.3.2 ‘(nodefunc FUNCTION)’
+1.4.2 ‘(nodefunc FUNCTION)’
 ---------------------------
 
 FUNCTION is called with no arguments and must return an ‘org-roam-node’.
@@ -319,7 +332,7 @@ example, today's daily note.
 
 File: org-roam-gt.info,  Node: (nodefunc+headline FUNCTION HEADLINE),  Next: (node+headline TITLE-OR-ID HEADLINE),  Prev: (nodefunc FUNCTION),  Up: New capture target types
 
-1.3.3 ‘(nodefunc+headline FUNCTION HEADLINE)’
+1.4.3 ‘(nodefunc+headline FUNCTION HEADLINE)’
 ---------------------------------------------
 
 Like ‘nodefunc’, but positions inside a named heading within the node.
@@ -333,7 +346,7 @@ The heading is created as a child if it does not exist.
 
 File: org-roam-gt.info,  Node: (node+headline TITLE-OR-ID HEADLINE),  Next: (node+olp TITLE-OR-ID "h1" "h2" ),  Prev: (nodefunc+headline FUNCTION HEADLINE),  Up: New capture target types
 
-1.3.4 ‘(node+headline TITLE-OR-ID HEADLINE)’
+1.4.4 ‘(node+headline TITLE-OR-ID HEADLINE)’
 --------------------------------------------
 
 Looks up a node by its ID or title, then positions inside a named
@@ -369,7 +382,7 @@ non-nil to keep it in the candidate pool.
 
 File: org-roam-gt.info,  Node: (node+olp TITLE-OR-ID "h1" "h2" ),  Next: (node+olp+datetree TITLE-OR-ID "h1" "h2" ),  Prev: (node+headline TITLE-OR-ID HEADLINE),  Up: New capture target types
 
-1.3.5 ‘(node+olp TITLE-OR-ID "h1" "h2" ...)’
+1.4.5 ‘(node+olp TITLE-OR-ID "h1" "h2" ...)’
 --------------------------------------------
 
 Like ‘node+headline’ but navigates (or creates) an arbitrary outline
@@ -386,7 +399,7 @@ strings may contain ‘${var}’ template variables.
 
 File: org-roam-gt.info,  Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" ),  Next: (nodefunc+olp+datetree FUNCTION "h1" "h2" ),  Prev: (node+olp TITLE-OR-ID "h1" "h2" ),  Up: New capture target types
 
-1.3.6 ‘(node+olp+datetree TITLE-OR-ID "h1" "h2" ...)’
+1.4.6 ‘(node+olp+datetree TITLE-OR-ID "h1" "h2" ...)’
 -----------------------------------------------------
 
 Positions capture at an org datetree entry beneath the node.  The OLP
@@ -418,7 +431,7 @@ interactively; otherwise the current date is used (respecting
 
 File: org-roam-gt.info,  Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" ),  Prev: (node+olp+datetree TITLE-OR-ID "h1" "h2" ),  Up: New capture target types
 
-1.3.7 ‘(nodefunc+olp+datetree FUNCTION "h1" "h2" ...)’
+1.4.7 ‘(nodefunc+olp+datetree FUNCTION "h1" "h2" ...)’
 ------------------------------------------------------
 
 Like ‘node+olp+datetree’, but the destination node is computed by
@@ -433,7 +446,7 @@ semantics (optional OLP, ‘:tree-type’, ‘:time-prompt’) are identical.
 
 File: org-roam-gt.info,  Node: Template body loaded from a file,  Next: create-file guard,  Prev: New capture target types,  Up: org-roam-gt
 
-1.4 Template body loaded from a file
+1.5 Template body loaded from a file
 ====================================
 
 Anywhere a template body (or the head string of ‘file+head’ /
@@ -464,7 +477,7 @@ looks like:
 
 File: org-roam-gt.info,  Node: create-file guard,  Next: Refiling to a capture target,  Prev: Template body loaded from a file,  Up: org-roam-gt
 
-1.5 ‘:create-file’ guard
+1.6 ‘:create-file’ guard
 ========================
 
 An optional template property that asserts the template's intent about
@@ -500,7 +513,7 @@ function may return a not-yet-existent node.
 
 File: org-roam-gt.info,  Node: Refiling to a capture target,  Next: One path per file,  Prev: create-file guard,  Up: org-roam-gt
 
-1.6 Refiling to a capture target
+1.7 Refiling to a capture target
 ================================
 
 ‘org-roam-refile’ can only move a subtree to the top of a node.  A
@@ -555,7 +568,7 @@ works whether or not ‘org-roam-gt-mode’ is enabled.
 
 File: org-roam-gt.info,  Node: One path per file,  Next: Directory renames and deletions,  Prev: Refiling to a capture target,  Up: org-roam-gt
 
-1.7 One path per file
+1.8 One path per file
 =====================
 
 org-roam follows symlinks deliberately — every backend of
@@ -601,7 +614,7 @@ org-roam's behaviour untouched.
 
 File: org-roam-gt.info,  Node: Directory renames and deletions,  Next: Citations without a whole-buffer parse,  Prev: One path per file,  Up: org-roam-gt
 
-1.8 Directory renames and deletions
+1.9 Directory renames and deletions
 ===================================
 
 ‘org-roam-db-autosync-mode’ keeps the database current by advising
@@ -634,8 +647,8 @@ org-roam's behaviour untouched.
 
 File: org-roam-gt.info,  Node: Citations without a whole-buffer parse,  Next: Speed commands,  Prev: Directory renames and deletions,  Up: org-roam-gt
 
-1.9 Citations without a whole-buffer parse
-==========================================
+1.10 Citations without a whole-buffer parse
+===========================================
 
 Saving a large file is slow, and most of the time goes to work whose
 result is thrown away.  ‘org-roam-db-update-file’ calls
@@ -669,7 +682,7 @@ report no citations at all.
 
 File: org-roam-gt.info,  Node: Speed commands,  Next: Faster node search,  Prev: Citations without a whole-buffer parse,  Up: org-roam-gt
 
-1.10 Speed commands
+1.11 Speed commands
 ===================
 
 When ‘org-roam-gt-transient.el’ is loaded (see the opt-in section
@@ -689,7 +702,7 @@ heading.
 
 File: org-roam-gt.info,  Node: Faster node search,  Next: Development,  Prev: Speed commands,  Up: org-roam-gt
 
-1.11 Faster node search
+1.12 Faster node search
 =======================
 
 When you invoke ‘org-roam-node-find’, Emacs has to build the list of
@@ -707,7 +720,7 @@ The original template is restored if you disable the mode.
 
 File: org-roam-gt.info,  Node: Development,  Next: MELPA submission,  Prev: Faster node search,  Up: org-roam-gt
 
-1.12 Development
+1.13 Development
 ================
 
 The repository ships a ‘Makefile’ that drives every dev workflow via a
@@ -728,7 +741,7 @@ on Emacs 30.1, 31.1, and snapshot.
 
 File: org-roam-gt.info,  Node: MELPA submission,  Prev: Development,  Up: org-roam-gt
 
-1.13 MELPA submission
+1.14 MELPA submission
 =====================
 
 The MELPA recipe lives at ‘melpa/org-roam-gt’; instructions for
@@ -737,29 +750,30 @@ submitting it upstream are in ‘melpa/README.md’.
 
 Tag Table:
 Node: Top238
-Node: org-roam-gt1291
-Node: Installation4173
-Node: Selectively disabling features5068
-Node: Speed command menu (opt-in)6763
-Node: Hook-based extension API7816
-Node: New capture target types8635
-Node: (node TITLE-OR-ID)10984
-Node: (nodefunc FUNCTION)11728
-Node: (nodefunc+headline FUNCTION HEADLINE)12312
-Node: (node+headline TITLE-OR-ID HEADLINE)12866
-Node: (node+olp TITLE-OR-ID "h1" "h2" )14321
-Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )15010
-Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )16364
-Node: Template body loaded from a file16996
-Node: create-file guard18080
-Node: Refiling to a capture target19623
-Node: One path per file22171
-Node: Directory renames and deletions24374
-Node: Citations without a whole-buffer parse26060
-Node: Speed commands27838
-Node: Faster node search28512
-Node: Development29349
-Node: MELPA submission30205
+Node: org-roam-gt1303
+Node: Installation4197
+Node: Version5069
+Node: Selectively disabling features5462
+Node: Speed command menu (opt-in)7152
+Node: Hook-based extension API8205
+Node: New capture target types9024
+Node: (node TITLE-OR-ID)11373
+Node: (nodefunc FUNCTION)12117
+Node: (nodefunc+headline FUNCTION HEADLINE)12701
+Node: (node+headline TITLE-OR-ID HEADLINE)13255
+Node: (node+olp TITLE-OR-ID "h1" "h2" )14710
+Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )15399
+Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )16753
+Node: Template body loaded from a file17385
+Node: create-file guard18469
+Node: Refiling to a capture target20012
+Node: One path per file22560
+Node: Directory renames and deletions24763
+Node: Citations without a whole-buffer parse26449
+Node: Speed commands28229
+Node: Faster node search28903
+Node: Development29740
+Node: MELPA submission30596
 
 End Tag Table
 

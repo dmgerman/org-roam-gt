@@ -53,6 +53,21 @@
   "Improvements for org-roam: faster search, richer capture targets, speed commands."
   :group 'org-roam)
 
+;;; Version
+
+(defconst org-roam-gt-version "0.4"
+  "Version of org-roam-gt.
+Must be kept in sync with the `Version:' header of this file.")
+
+(defun org-roam-gt-version (&optional interactivep)
+  "Return the version of org-roam-gt as a string.
+When called interactively, or when INTERACTIVEP is non-nil, also
+display it in the echo area."
+  (interactive (list t))
+  (when interactivep
+    (message "org-roam-gt %s" org-roam-gt-version))
+  org-roam-gt-version)
+
 ;;; Verify org-roam version
 
 (let* (;; `org-roam-version' may signal on MELPA installs (its header search

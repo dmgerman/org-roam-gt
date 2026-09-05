@@ -77,6 +77,13 @@ The menu uses ~transient~, which is bundled with Emacs — nothing extra
 to install.  Just ~(require 'org-roam-gt-transient)~ before enabling
 the mode.
 
+** Version
+
+~M-x org-roam-gt-version~ reports the version of org-roam-gt in the
+echo area.  Called from Lisp, ~(org-roam-gt-version)~ returns it as a
+string without displaying it; the same value is also held in the
+constant ~org-roam-gt-version~.
+
 ** Selectively disabling features
 
 Every feature is enabled by default.  Each can be turned off

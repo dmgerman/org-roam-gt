@@ -55,6 +55,14 @@ modules/org-roam-gt/
     └── roam-files/           # fixture .org files for tests
 ```
 
+## Version
+
+`org-roam-gt-version` is both a constant and an interactive command
+(one symbol, two cells, as with `emacs-version`), defined in
+`org-roam-gt.el` only.  It does not read the file header, so a release
+bump must change five places together: the constant, and the
+`;; Version:` header of each of the four `.el` files.
+
 ## How the capture extension works
 
 `org-roam-capture--setup-target-location` is the internal function org-roam
