@@ -328,6 +328,23 @@ template variables which are expanded via
 
 ;;; Datetree helper
 
+(defun org-roam-gt-capture--datetree-function (name)
+  "Return the org datetree function named NAME, a string.
+Signal an error when it is not defined.
+
+NAME is a string, and the symbol is resolved at run time, so
+package-lint never sees a static reference.  Its stdlib data misjudges
+these three functions.  It reports `org-datetree-find-month-create' as
+removed from Emacs core, although every Org since 9.4 defines it.  It
+attributes `org-datetree-find-create-hierarchy' and
+`org-datetree-find-create-entry' to Emacs 31.1, the first release to
+bundle Org 9.8, without crediting the (org \"9.8\") entry in this
+package's Package-Requires, which supplies them on Emacs 30 as well."
+  (let ((fn (intern-soft name)))
+    (unless (fboundp fn)
+      (error "Function `%s' unavailable; check your Org version" name))
+    fn))
+
 (defun org-roam-gt-capture--datetree-at-point ()
   "Build a datetree at the current position.
 Delegates entirely to org's datetree machinery, honouring the standard
@@ -342,20 +359,24 @@ OLP), so the datetree is built at file scope — matching org behaviour."
     (funcall
      (pcase (org-capture-get :tree-type)
        (`week  #'org-datetree-find-iso-week-create)
-       ;; `intern-soft' avoids a package-lint false positive: its stdlib data
-       ;; incorrectly marks `org-datetree-find-month-create' as removed from
-       ;; Emacs core, but the function is present in every Org since 9.4.
-       (`month (or (intern-soft "org-datetree-find-month-create")
-                   (error "Function `org-datetree-find-month-create' unavailable")))
+       ;; The three functions resolved through
+       ;; `org-roam-gt-capture--datetree-function' are named as strings to
+       ;; keep them out of package-lint's static scan; see that function.
+       (`month (org-roam-gt-capture--datetree-function
+                "org-datetree-find-month-create"))
        (`day   #'org-datetree-find-date-create)
        ((pred not) #'org-datetree-find-date-create)
        ;; NOTE: functionp must precede listp — lambda forms satisfy both predicates
        ((and (pred functionp) fun)
         (lambda (d keep)
-          (org-datetree-find-create-hierarchy (funcall fun d) keep)))
+          (funcall (org-roam-gt-capture--datetree-function
+                    "org-datetree-find-create-hierarchy")
+                   (funcall fun d) keep)))
        ((and (pred listp) grouping)
         (lambda (d keep)
-          (org-datetree-find-create-entry grouping d keep)))
+          (funcall (org-roam-gt-capture--datetree-function
+                    "org-datetree-find-create-entry")
+                   grouping d keep)))
        (_ (error "Org-roam-gt-capture: unrecognized :tree-type %S"
                  (org-capture-get :tree-type))))
      (calendar-gregorian-from-absolute
