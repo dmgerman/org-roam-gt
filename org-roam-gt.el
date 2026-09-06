@@ -665,8 +665,13 @@ Compares physical locations, so a directory reached through a symlink is
 recognised.  Guards the database queries: most directories renamed or
 removed in a session have nothing to do with org-roam."
   (and (stringp directory)
-       (ignore-errors
-         (file-in-directory-p directory (file-name-as-directory org-roam-directory)))))
+       ;; `org-roam-directory' is nil until org-roam is configured, and
+       ;; `file-name-as-directory' signals `wrong-type-argument' on a
+       ;; non-string.  That is the only error this predicate can raise:
+       ;; `file-in-directory-p' returns nil for a nonexistent or
+       ;; unreachable remote directory rather than signalling.
+       (stringp org-roam-directory)
+       (file-in-directory-p directory (file-name-as-directory org-roam-directory))))
 
 (defun org-roam-gt--recorded-files-under (directory)
   "Return the files the database records under DIRECTORY."

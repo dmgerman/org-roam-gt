@@ -12,6 +12,8 @@
 #
 #   PACKAGE          package name; basename of the Info manual
 #   EL_FILES         sources in byte-compile order (required)
+#   MAIN_FILE        file carrying the package headers, for
+#                    `package-lint-main-file' (default: $(PACKAGE).el)
 #   DEPS             packages installed into the project-local ELPA
 #   UPGRADE_DEPS     subset of DEPS to install with
 #                    `package-install-upgrade-built-in' set, for
@@ -41,6 +43,13 @@ CI_EMACS_LIST ?= $(EMACS_30) $(EMACS_31)
 
 TEST_DIR  ?= test
 TEST_FILES ?= $(wildcard $(TEST_DIR)/*.el)
+
+# The file carrying Package-Requires and the other package headers.
+# Without it package-lint reads each file as a package of its own and
+# skips every check that spans a multi-file package, among them
+# "Package-Requires outside the main file have no effect".  Empty when
+# the package sets no PACKAGE, in which case lint runs as before.
+MAIN_FILE ?= $(if $(strip $(PACKAGE)),$(PACKAGE).el)
 INFO_FILE ?= $(if $(strip $(INFO_SRC)),$(PACKAGE).info)
 INFO_DIR  ?= dir
 
@@ -91,6 +100,7 @@ $(ELPA_DIR)/.installed: | $(ELPA_DIR)
 lint: $(ELPA_DIR)/.installed
 	$(EMACS_BATCH) \
 	  --eval "(require 'package-lint)" \
+	  $(if $(strip $(MAIN_FILE)),--eval "(setq package-lint-main-file \"$(MAIN_FILE)\")") \
 	  -f package-lint-batch-and-exit $(EL_FILES)
 
 # checkdoc runs in batch via `checkdoc-file', which writes warnings to
