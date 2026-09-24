@@ -13,7 +13,8 @@ PACKAGE = org-roam-gt
 EL_FILES = org-roam-gt-capture.el \
            org-roam-gt-refile.el \
            org-roam-gt.el \
-           org-roam-gt-transient.el
+           org-roam-gt-transient.el \
+           org-roam-gt-list.el
 
 # `org-roam' is a runtime dependency; `transient' is used by
 # org-roam-gt-transient.el but ships with every supported Emacs, so no

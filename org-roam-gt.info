@@ -32,6 +32,7 @@ org-roam-gt
 * Citations without a whole-buffer parse::
 * Speed commands::
 * Faster node search::
+* Node list buffer::
 * Development::
 * MELPA submission::
 
@@ -49,6 +50,14 @@ New capture target types
 * ‘(node+olp TITLE-OR-ID "h1" "h2" ...)’: (node+olp TITLE-OR-ID "h1" "h2" ).
 * ‘(node+olp+datetree TITLE-OR-ID "h1" "h2" ...)’: (node+olp+datetree TITLE-OR-ID "h1" "h2" ).
 * ‘(nodefunc+olp+datetree FUNCTION "h1" "h2" ...)’: (nodefunc+olp+datetree FUNCTION "h1" "h2" ).
+
+Node list buffer
+
+* Columns::
+* Sorting and filtering::
+* Keys::
+* Bookmarking a view::
+* Remembering the view::
 
 
 File: org-roam-gt.info,  Node: org-roam-gt,  Prev: Top,  Up: Top
@@ -113,6 +122,7 @@ no mode at all:
 * Citations without a whole-buffer parse::
 * Speed commands::
 * Faster node search::
+* Node list buffer::
 * Development::
 * MELPA submission::
 
@@ -700,7 +710,7 @@ Key   Action
 heading.
 
 
-File: org-roam-gt.info,  Node: Faster node search,  Next: Development,  Prev: Speed commands,  Up: org-roam-gt
+File: org-roam-gt.info,  Node: Faster node search,  Next: Node list buffer,  Prev: Speed commands,  Up: org-roam-gt
 
 1.12 Faster node search
 =======================
@@ -718,9 +728,231 @@ noticeably.  The completion interface looks and behaves identically.
 The original template is restored if you disable the mode.
 
 
-File: org-roam-gt.info,  Node: Development,  Next: MELPA submission,  Prev: Faster node search,  Up: org-roam-gt
+File: org-roam-gt.info,  Node: Node list buffer,  Next: Development,  Prev: Faster node search,  Up: org-roam-gt
 
-1.13 Development
+1.13 Node list buffer
+=====================
+
+‘M-x org-roam-gt-list’ opens ‘*Org Roam Nodes*’: one row per node in the
+org-roam database, built on ‘tabulated-list-mode’.  The buffer is read
+only in the strong sense — no command in it modifies a node, a file, or
+a database record — so it can be left open over a database that other
+commands are changing.
+
+   The command is in ‘org-roam-gt-list.el’, which is loaded on demand:
+
+     (require 'org-roam-gt-list)
+
+   It installs no advice on org-roam and does not need
+‘org-roam-gt-mode’ to be enabled.
+
+* Menu:
+
+* Columns::
+* Sorting and filtering::
+* Keys::
+* Bookmarking a view::
+* Remembering the view::
+
+
+File: org-roam-gt.info,  Node: Columns,  Next: Sorting and filtering,  Up: Node list buffer
+
+1.13.1 Columns
+--------------
+
+Ten columns are available; five are displayed by default:
+
+   Ten columns are available; five are displayed by default.  They are
+listed here in registry order, which is also the order a column returns
+to when it is shown again:
+
+Column        Shows                                       Width   Default
+----------------------------------------------------------------------------
+‘todo’        TODO keyword                                6       yes
+‘date’        modification time of the node's file        10      yes
+‘tags’        tags, comma-separated                       20      yes
+‘priority’    letter of the priority cookie               1       no
+‘scheduled’   scheduled date                              10      no
+‘deadline’    deadline date                               10      no
+‘level’       outline level; 0 for a file-level node      1       no
+‘olp’         outline path above the node's own heading   30      no
+‘title’       node title                                  50      yes
+‘file’        file, relative to ‘org-roam-directory’      30      yes
+
+   ‘title’ and ‘file’ are last in the registry on purpose: they are the
+two free-form columns, so turning any other column on places it *before*
+them rather than pushing them out of their usual position.
+
+   ‘org-roam-gt-list-columns’ sets which columns are displayed and their
+left-to-right order:
+
+     (setq org-roam-gt-list-columns '(todo date tags title file))
+
+   Within a buffer, ‘c’ shows or hides one column and ‘C’ sets the whole
+list and its order.
+
+   Each column is bounded by its width.  A value that does not fit is
+truncated to the column and marked with ‘truncate-string-ellipsis’
+(‘…’), so a shortened cell is visibly shortened rather than silently
+cut.  Raise a width to see more:
+
+     (setq org-roam-gt-list-column-widths '((title . 80) (file . 60)))
+
+   The *last* displayed column is the exception: it has the rest of the
+line to itself, with nothing after it to push out of place, so it is
+shown in full and its width is ignored.  Put the column whose values run
+longest at the end — with the default columns that is ‘file’, so full
+paths stay readable.
+
+   The widths are chosen so the fixed part of a row fits in about 90
+columns, leaving the rest of the frame to the last column.  Tags are
+comma-separated rather than space-separated: once a cell is truncated,
+space-separated tags read as one run of text.
+
+   The ‘date’ column is the modification time of the file the node lives
+in, so every node in one file shows the same date.  Its format is
+‘org-roam-gt-list-date-format’ (default ‘"%Y-%m-%d"’); a format whose
+fields run from the largest unit to the smallest keeps the column's sort
+chronological.
+
+
+File: org-roam-gt.info,  Node: Sorting and filtering,  Next: Keys,  Prev: Columns,  Up: Node list buffer
+
+1.13.2 Sorting and filtering
+----------------------------
+
+Click a column header to sort by it, or press ‘s’ to cycle through the
+sortable columns.  The initial sort is
+‘org-roam-gt-list-default-sort-key’, which defaults to ‘("Date" . t)’ —
+most recently modified first.  Hiding the column a buffer is sorted by
+falls back to the first sortable column rather than signalling.
+
+   ‘/’ adds a filter.  Selecting on more than one attribute is a matter
+of applying more than one filter — there are two ways to combine them,
+and they do opposite things:
+
+   • *Several values in one filter widen the selection.*  The tag, TODO,
+     and level readers take a comma-separated list, and a node matches
+     when *any* of the values does.  Reading ‘jp,ww’ at the tag prompt
+     selects everything tagged jp or ww.
+
+   • *Several filters narrow it.*  Each filter applies on top of the
+     ones already in force, so a tag filter followed by a level filter
+     selects the nodes that satisfy both.  The same filter may be
+     applied repeatedly: two separate ‘by-tag’ filters select the nodes
+     carrying *both* tags, where one ‘by-tag’ with two values selects
+     the nodes carrying *either*.
+
+   With a prefix argument (‘C-u /’) the filter is negated and selects
+exactly what it would otherwise reject, e.g.  ‘C-u /’ ‘by-todo’ ‘DONE’
+hides done nodes.  A negated multi-value filter is inverted as a whole:
+negating tags ‘jp,ww’ selects the nodes carrying neither.
+
+   ‘D’ removes a single filter, with completion over the ones in force;
+‘V’ clears them all along with the rest of the view.
+
+   The mode line lists the active filters and how many rows they leave:
+
+     -:--- *Org Roam Nodes*   [tag=jp,ww !todo=DONE] 25/2850
+
+Filter              Selects                                    Values
+------------------------------------------------------------------------
+‘by-tag’            nodes carrying one of the tags             many
+‘by-todo’           nodes with one of the TODO keywords        many
+‘by-level’          file-level nodes, heading nodes, or both   many
+‘by-title-regexp’   nodes whose title matches a regexp         one
+‘by-file-regexp’    nodes whose file name matches a regexp     one
+‘unfilter’          clears every active filter                 —
+
+   The regexp filters take one value rather than a list, because a comma
+is an ordinary character inside a regexp and splitting on it would
+corrupt the pattern; apply the filter twice to narrow further.
+
+   The tag and TODO readers offer only what the nodes on display
+actually carry, so a completion candidate never produces an empty
+buffer.
+
+   Filters are a registry, ‘org-roam-gt-list-filter-alist’; each entry
+is ‘(KEY :name STRING :reader FN :predicate FN :doc STRING)’.  The
+reader takes no arguments and returns a *list* of values, even when it
+read only one.  The predicate is called as ‘(NODE VALUE)’ with a single
+value and returns non-nil when the node matches it — combining the
+values and applying negation is done once by the list buffer, not in
+every predicate, so a predicate you add gets both behaviours for free.
+Adding your own filter is a matter of pushing an entry onto that alist.
+
+
+File: org-roam-gt.info,  Node: Keys,  Next: Bookmarking a view,  Prev: Sorting and filtering,  Up: Node list buffer
+
+1.13.3 Keys
+-----------
+
+Key         Action
+------------------------------------------------------
+‘RET’       visit the node (same window)
+‘o’         visit the node (other window)
+‘TAB’       preview, keeping point in the list
+‘i’         pretty-print the node record
+‘s’         cycle the sort column
+‘/’         add a filter
+‘C-u /’     add a negated filter
+‘D’         remove one filter
+‘c’         show or hide one column
+‘C’         set the whole column list and its order
+‘V’         reset sort, filters, and columns
+‘g’         re-read the database, then redraw
+‘C-x r m’   bookmark the current view
+‘q’         quit
+
+   The database is read once per ‘g’ and cached for the buffer, so
+sorting, filtering, and column changes redraw without querying it again.
+
+
+File: org-roam-gt.info,  Node: Bookmarking a view,  Next: Remembering the view,  Prev: Keys,  Up: Node list buffer
+
+1.13.4 Bookmarking a view
+-------------------------
+
+A bookmark on this buffer records the *view*, not a position: the
+displayed columns, the active filters, and the sort key.  A position
+would be meaningless, since the row under point moves whenever the
+database changes.
+
+   Press ‘C-x r m’ (‘bookmark-set’) in the list buffer.  The default
+name offered is ‘org-roam-gt-list-bookmark-prefix’ with the active
+filters appended, so several saved views stay distinguishable:
+
+     Org roam nodes: by-tag=dmgTodo by-level=heading
+
+   Jumping to the bookmark opens the list buffer if needed, applies the
+saved columns, filters, and sort key, and re-reads the database — so the
+restored view shows the nodes as they are then, not as they were when
+the bookmark was stored.
+
+   This is built on ‘bookmark.el’ (a ‘bookmark-make-record-function’ and
+a ‘handler’ property), so any bookmark front end built on ‘bookmark.el’
+stores and jumps to these without needing to know anything about
+org-roam-gt.
+
+
+File: org-roam-gt.info,  Node: Remembering the view,  Prev: Bookmarking a view,  Up: Node list buffer
+
+1.13.5 Remembering the view
+---------------------------
+
+The sort key, the displayed columns, and the active filters are kept for
+as long as the buffer lives.  To carry them across Emacs sessions:
+
+     (setq org-roam-gt-list-persist-state t)
+
+   They are then written to ‘org-roam-gt-list-state-file’ whenever they
+change and re-read the next time the mode is entered.  Point is not
+persisted.
+
+
+File: org-roam-gt.info,  Node: Development,  Next: MELPA submission,  Prev: Node list buffer,  Up: org-roam-gt
+
+1.14 Development
 ================
 
 The repository ships a ‘Makefile’ that drives every dev workflow via a
@@ -741,7 +973,7 @@ on Emacs 30.1, 31.1, and snapshot.
 
 File: org-roam-gt.info,  Node: MELPA submission,  Prev: Development,  Up: org-roam-gt
 
-1.14 MELPA submission
+1.15 MELPA submission
 =====================
 
 The MELPA recipe lives at ‘melpa/org-roam-gt’; instructions for
@@ -750,30 +982,36 @@ submitting it upstream are in ‘melpa/README.md’.
 
 Tag Table:
 Node: Top238
-Node: org-roam-gt1303
-Node: Installation4197
-Node: Version5069
-Node: Selectively disabling features5462
-Node: Speed command menu (opt-in)7152
-Node: Hook-based extension API8205
-Node: New capture target types9024
-Node: (node TITLE-OR-ID)11373
-Node: (nodefunc FUNCTION)12117
-Node: (nodefunc+headline FUNCTION HEADLINE)12701
-Node: (node+headline TITLE-OR-ID HEADLINE)13255
-Node: (node+olp TITLE-OR-ID "h1" "h2" )14710
-Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )15399
-Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )16753
-Node: Template body loaded from a file17385
-Node: create-file guard18469
-Node: Refiling to a capture target20012
-Node: One path per file22560
-Node: Directory renames and deletions24763
-Node: Citations without a whole-buffer parse26449
-Node: Speed commands28229
-Node: Faster node search28903
-Node: Development29740
-Node: MELPA submission30596
+Node: org-roam-gt1438
+Node: Installation4353
+Node: Version5225
+Node: Selectively disabling features5618
+Node: Speed command menu (opt-in)7308
+Node: Hook-based extension API8361
+Node: New capture target types9180
+Node: (node TITLE-OR-ID)11529
+Node: (nodefunc FUNCTION)12273
+Node: (nodefunc+headline FUNCTION HEADLINE)12857
+Node: (node+headline TITLE-OR-ID HEADLINE)13411
+Node: (node+olp TITLE-OR-ID "h1" "h2" )14866
+Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )15555
+Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )16909
+Node: Template body loaded from a file17541
+Node: create-file guard18625
+Node: Refiling to a capture target20168
+Node: One path per file22716
+Node: Directory renames and deletions24919
+Node: Citations without a whole-buffer parse26605
+Node: Speed commands28385
+Node: Faster node search29059
+Node: Node list buffer29901
+Node: Columns30697
+Node: Sorting and filtering33625
+Node: Keys37012
+Node: Bookmarking a view37959
+Node: Remembering the view39100
+Node: Development39605
+Node: MELPA submission40459
 
 End Tag Table
 
