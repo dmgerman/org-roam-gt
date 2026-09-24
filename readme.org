@@ -11,12 +11,15 @@ Org-roam is a powerful knowledge management system, but its defaults
 favour simplicity over scale.  As your node count grows into the thousands,
 ~org-roam-node-find~ slows noticeably, the standard capture targets are limited to files and nodes — you cannot
 route a capture directly into a named heading or a computed destination such
-as today's daily note — and frequent operations like refile and capture have
-no built-in keyboard shortcuts.
+as today's daily note — frequent operations like refile and capture have
+no built-in keyboard shortcuts, and there is no view of the database as a
+whole: nothing that lets you see what is in it, put the notes you changed
+most recently first, or ask which of them are tagged a certain way and
+still unfinished.
 
 ~org-roam-gt~ addresses all of these — the first, second and fourth
-through a single minor mode, and the third through a command that needs
-no mode at all:
+through a single minor mode, and the third and fifth through commands
+that need no mode at all:
 
 1. *Faster node display* — replaces the string-based display template with a
    function, which is significantly faster on large databases and lets you
@@ -46,6 +49,14 @@ no mode at all:
 4. *Speed command menu* — a ~transient~ prefix bound to ~m~ in
    ~org-speed-commands~, giving one-keystroke access to capture, refile,
    find, and extract-subtree from any org heading.
+
+5. *A browsable list of every node* — ~org-roam-gt-list~ shows the whole
+   database, one node per row, so you can look through it rather than
+   having to name what you want in advance.  Sort it by any column,
+   search it by tag, TODO keyword, outline level, title or file name,
+   and open any node you find.  Searches combine, so you can work down
+   to the handful of nodes you are after, and a search you return to
+   often can be saved as a bookmark.
 
 ** Installation
 
@@ -587,197 +598,216 @@ original template is restored if you disable the mode.
 
 ** Node list buffer
 
-~M-x org-roam-gt-list~ opens ~*Org Roam Nodes*~: one row per node in the
-org-roam database, built on ~tabulated-list-mode~.  The buffer is read
-only in the strong sense — no command in it modifies a node, a file, or a
-database record — so it can be left open over a database that other
-commands are changing.
+Org-roam shows you one node at a time.  ~org-roam-node-find~ needs you to
+know what you are looking for before it shows you anything, and there is
+no view of the database as a whole: no way to see what is in it, to put
+the notes you touched this week at the top, or to answer a question like
+"what do I have tagged =jp= that is still a TODO?".
 
-The command is in ~org-roam-gt-list.el~, which is loaded on demand:
+~M-x org-roam-gt-list~ opens ~*Org Roam Nodes*~, a listing of every node in
+the database, one node per row.  From it you can:
+
+- *browse* the database — all of it, sorted however you like;
+- *search* it by tag, TODO keyword, outline level, title, or file name,
+  combining those conditions until the rows left are the ones you want;
+- *open* any node you find, in this window or another;
+- *save* a search you use often and return to it later.
+
+No command in the buffer changes a node, a file, or the database.  You can
+leave it open while you edit your notes, and press ~g~ when you want it to
+catch up.
+
+Load it with:
 
 #+begin_src emacs-lisp
 (require 'org-roam-gt-list)
 #+end_src
 
-It installs no advice on org-roam and does not need ~org-roam-gt-mode~ to
-be enabled.
+It works whether or not ~org-roam-gt-mode~ is enabled.
 
-*** Columns
+*** What each row shows
 
-Ten columns are available; five are displayed by default:
+Five columns are shown by default.  Five more are available and hidden:
 
-Ten columns are available; five are displayed by default.  They are listed
-here in registry order, which is also the order a column returns to when
-it is shown again:
+| Column      | Shows                                            | Width | Shown |
+|-------------+--------------------------------------------------+-------+-------|
+| ~todo~        | TODO keyword                                     |     6 | yes   |
+| ~date~        | when the node's file was last modified           |    10 | yes   |
+| ~tags~        | the node's tags, separated by commas             |    20 | yes   |
+| ~priority~    | priority letter, from a ~[#A]~ cookie              |     1 | no    |
+| ~scheduled~   | scheduled date                                   |    10 | no    |
+| ~deadline~    | deadline date                                    |    10 | no    |
+| ~level~       | outline level; 0 for a whole-file node           |     1 | no    |
+| ~olp~         | the headings above this one                      |    30 | no    |
+| ~title~       | the node's title                                 |    50 | yes   |
+| ~file~        | the node's file, relative to ~org-roam-directory~  |    30 | yes   |
 
-| Column      | Shows                                             | Width | Default |
-|-------------+---------------------------------------------------+-------+---------|
-| ~todo~        | TODO keyword                                      |     6 | yes     |
-| ~date~        | modification time of the node's file              |    10 | yes     |
-| ~tags~        | tags, comma-separated                             |    20 | yes     |
-| ~priority~    | letter of the priority cookie                     |     1 | no      |
-| ~scheduled~   | scheduled date                                    |    10 | no      |
-| ~deadline~    | deadline date                                     |    10 | no      |
-| ~level~       | outline level; 0 for a file-level node            |     1 | no      |
-| ~olp~         | outline path above the node's own heading         |    30 | no      |
-| ~title~       | node title                                        |    50 | yes     |
-| ~file~        | file, relative to ~org-roam-directory~              |    30 | yes     |
+Two things about ~date~ are worth knowing before you sort by it.  It is the
+modification time of the *file*, not of the node, so every node in one
+file shows the same date; and it is what the list is sorted by when you
+open it, newest first, which is usually the fastest way back to whatever
+you were working on yesterday.
 
-~title~ and ~file~ are last in the registry on purpose: they are the two
-free-form columns, so turning any other column on places it *before* them
-rather than pushing them out of their usual position.
+A value too long for its column is cut short and ends with ~…~, so you can
+always tell that you are seeing part of it.  The exception is the
+right-most column, which has the rest of the window available and is shown
+in full — which is why ~file~ is placed last by default, where long paths
+stay readable.
 
-~org-roam-gt-list-columns~ sets which columns are displayed and their
-left-to-right order:
+*** Finding what you want
 
-#+begin_src emacs-lisp
-(setq org-roam-gt-list-columns '(todo date tags title file))
-#+end_src
+**** Sorting
 
-Within a buffer, ~c~ shows or hides one column and ~C~ sets the whole list
-and its order.
+Click a column heading to sort by it, or press ~s~ to move the sort to the
+next column.  Clicking the heading you are already sorted by reverses the
+order.
 
-Each column is bounded by its width.  A value that does not fit is
-truncated to the column and marked with ~truncate-string-ellipsis~ (~…~), so
-a shortened cell is visibly shortened rather than silently cut.  Raise a
-width to see more:
+**** Searching
 
-#+begin_src emacs-lisp
-(setq org-roam-gt-list-column-widths '((title . 80) (file . 60)))
-#+end_src
+Press ~/~ and choose what to search on:
 
-The *last* displayed column is the exception: it has the rest of the line
-to itself, with nothing after it to push out of place, so it is shown in
-full and its width is ignored.  Put the column whose values run longest at
-the end — with the default columns that is ~file~, so full paths stay
-readable.
+| Search on          | Matches nodes whose…                    |
+|--------------------+-----------------------------------------|
+| ~by-tag~             | tags include one you name               |
+| ~by-todo~            | TODO keyword is one you name            |
+| ~by-level~           | level is whole-file, heading, or either |
+| ~by-title-regexp~    | title matches a regular expression      |
+| ~by-file-regexp~     | file name matches a regular expression  |
+| ~unfilter~           | (removes every search condition)        |
 
-The widths are chosen so the fixed part of a row fits in about 90 columns,
-leaving the rest of the frame to the last column.  Tags are comma-separated
-rather than space-separated: once a cell is truncated, space-separated tags
-read as one run of text.
+The tag and TODO prompts offer only the values your nodes actually use, so
+you cannot pick one that matches nothing.
 
-The ~date~ column is the modification time of the file the node lives in,
-so every node in one file shows the same date.  Its format is
-~org-roam-gt-list-date-format~ (default ~"%Y-%m-%d"~); a format whose fields
-run from the largest unit to the smallest keeps the column's sort
-chronological.
+Two ways of combining conditions are available, and they do opposite
+things:
 
-*** Sorting and filtering
+- *Naming several values in one prompt matches more nodes.*  The tag,
+  TODO, and level prompts accept a comma-separated list, and a node
+  matches if *any* value does.  Answering ~jp,ww~ at the tag prompt gives
+  you everything tagged either way.
 
-Click a column header to sort by it, or press ~s~ to cycle through the
-sortable columns.  The initial sort is ~org-roam-gt-list-default-sort-key~,
-which defaults to ~("Date" . t)~ — most recently modified first.  Hiding the
-column a buffer is sorted by falls back to the first sortable column
-rather than signalling.
+- *Pressing ~/~ again matches fewer nodes.*  Each condition applies on top
+  of those already in effect.  Searching by tag and then by level leaves
+  the nodes that satisfy both.  You can use the same condition twice: two
+  separate tag searches for ~jp~ and ~ww~ leave the nodes tagged *both*,
+  where one tag search for ~jp,ww~ leaves those tagged *either*.
 
-~/~ adds a filter.  Selecting on more than one attribute is a matter of
-applying more than one filter — there are two ways to combine them, and
-they do opposite things:
+With a prefix argument, ~C-u /~ excludes instead of includes: ~C-u /~
+~by-todo~ ~DONE~ hides finished nodes.  Excluding a multi-value condition
+excludes all of them together, so excluding tags ~jp,ww~ leaves the nodes
+tagged neither.
 
-- *Several values in one filter widen the selection.*  The tag, TODO, and
-  level readers take a comma-separated list, and a node matches when *any*
-  of the values does.  Reading ~jp,ww~ at the tag prompt selects everything
-  tagged jp or ww.
+Some examples:
 
-- *Several filters narrow it.*  Each filter applies on top of the ones
-  already in force, so a tag filter followed by a level filter selects the
-  nodes that satisfy both.  The same filter may be applied repeatedly: two
-  separate ~by-tag~ filters select the nodes carrying *both* tags, where one
-  ~by-tag~ with two values selects the nodes carrying *either*.
+| To see…                                | Do                                     |
+|----------------------------------------+----------------------------------------|
+| everything tagged =jp=                   | ~/~ ~by-tag~ ~jp~                            |
+| everything tagged =jp= or =ww=             | ~/~ ~by-tag~ ~jp,ww~                         |
+| notes tagged both =jp= and =ww=            | ~/~ ~by-tag~ ~jp~, then ~/~ ~by-tag~ ~ww~          |
+| unfinished work, done items hidden     | ~C-u /~ ~by-todo~ ~DONE~                     |
+| headings tagged =jp=, not whole files    | ~/~ ~by-tag~ ~jp~, then ~/~ ~by-level~ ~heading~   |
+| notes whose file is under =daily/=       | ~/~ ~by-file-regexp~ ~daily/~                |
 
-With a prefix argument (~C-u /~) the filter is negated and selects exactly
-what it would otherwise reject, e.g. ~C-u /~ ~by-todo~ ~DONE~ hides done nodes.
-A negated multi-value filter is inverted as a whole: negating tags ~jp,ww~
-selects the nodes carrying neither.
+The regular-expression searches take a single pattern rather than a list,
+because a comma is an ordinary character in a regular expression.  Press
+~/~ again to add a second pattern.
 
-~D~ removes a single filter, with completion over the ones in force; ~V~
-clears them all along with the rest of the view.
-
-The mode line lists the active filters and how many rows they leave:
+The mode line shows the conditions in effect and how many of your nodes
+are left:
 
 : -:--- *Org Roam Nodes*   [tag=jp,ww !todo=DONE] 25/2850
 
-| Filter             | Selects                                | Values |
-|--------------------+----------------------------------------+--------|
-| ~by-tag~             | nodes carrying one of the tags         | many   |
-| ~by-todo~            | nodes with one of the TODO keywords    | many   |
-| ~by-level~           | file-level nodes, heading nodes, or both | many |
-| ~by-title-regexp~    | nodes whose title matches a regexp     | one    |
-| ~by-file-regexp~     | nodes whose file name matches a regexp | one    |
-| ~unfilter~           | clears every active filter             | —      |
-
-The regexp filters take one value rather than a list, because a comma is an
-ordinary character inside a regexp and splitting on it would corrupt the
-pattern; apply the filter twice to narrow further.
-
-The tag and TODO readers offer only what the nodes on display actually
-carry, so a completion candidate never produces an empty buffer.
-
-Filters are a registry, ~org-roam-gt-list-filter-alist~; each entry is
-~(KEY :name STRING :reader FN :predicate FN :doc STRING)~.  The reader takes
-no arguments and returns a *list* of values, even when it read only one.
-The predicate is called as ~(NODE VALUE)~ with a single value and returns
-non-nil when the node matches it — combining the values and applying
-negation is done once by the list buffer, not in every predicate, so a
-predicate you add gets both behaviours for free.  Adding your own filter is
-a matter of pushing an entry onto that alist.
+Press ~D~ to drop one condition, choosing from those in effect, or ~V~ to
+clear them all and return the buffer to its defaults.
 
 *** Keys
 
-| Key   | Action                                      |
-|-------+---------------------------------------------|
-| ~RET~   | visit the node (same window)                |
-| ~o~     | visit the node (other window)               |
-| ~TAB~   | preview, keeping point in the list          |
-| ~i~     | pretty-print the node record                |
-| ~s~     | cycle the sort column                       |
-| ~/~     | add a filter                                |
-| ~C-u /~ | add a negated filter                        |
-| ~D~     | remove one filter                           |
-| ~c~     | show or hide one column                     |
-| ~C~     | set the whole column list and its order     |
-| ~V~     | reset sort, filters, and columns            |
-| ~g~     | re-read the database, then redraw           |
-| ~C-x r m~ | bookmark the current view                 |
-| ~q~     | quit                                        |
+| Key     | Does                                      |
+|---------+-------------------------------------------|
+| ~RET~     | open the node in this window              |
+| ~o~       | open the node in another window           |
+| ~TAB~     | show the node in another window, stay here |
+| ~i~       | show the node's raw database record       |
+| ~s~       | sort by the next column                   |
+| ~/~       | add a search condition                    |
+| ~C-u /~   | add a condition that excludes             |
+| ~D~       | drop one search condition                 |
+| ~c~       | show or hide a column                     |
+| ~C~       | choose all the columns, and their order   |
+| ~V~       | clear the search and restore the columns  |
+| ~g~       | re-read the database                      |
+| ~C-x r m~ | save this view as a bookmark              |
+| ~q~       | bury the buffer                           |
 
-The database is read once per ~g~ and cached for the buffer, so sorting,
-filtering, and column changes redraw without querying it again.
+Sorting, searching, and changing columns all work from a copy of the node
+list taken when the buffer was opened, so they are immediate no matter how
+large your database is.  Press ~g~ to pick up notes you have added or
+edited since.
 
-*** Bookmarking a view
+*** Saving a view you use often
 
-A bookmark on this buffer records the *view*, not a position: the
-displayed columns, the active filters, and the sort key.  A position would
-be meaningless, since the row under point moves whenever the database
-changes.
+If you keep coming back to the same search — say your unfinished Japanese
+notes — save it with ~C-x r m~ (~bookmark-set~) and give it a name.  The name
+offered already describes the search:
 
-Press ~C-x r m~ (~bookmark-set~) in the list buffer.  The default name offered
-is ~org-roam-gt-list-bookmark-prefix~ with the active filters appended, so
-several saved views stay distinguishable:
+: Org roam nodes: tag=jp !todo=DONE
 
-: Org roam nodes: by-tag=dmgTodo by-level=heading
+Jumping to that bookmark later opens the list, restores the columns, the
+search conditions, and the sort order, and re-reads the database, so you
+see the nodes that match *now* rather than the ones that matched when you
+saved it.  These are ordinary Emacs bookmarks; anything that works with
+~bookmark.el~ can store and jump to them.
 
-Jumping to the bookmark opens the list buffer if needed, applies the saved
-columns, filters, and sort key, and re-reads the database — so the
-restored view shows the nodes as they are then, not as they were when the
-bookmark was stored.
-
-This is built on ~bookmark.el~ (a ~bookmark-make-record-function~ and a
-~handler~ property), so any bookmark front end built on ~bookmark.el~ stores
-and jumps to these without needing to know anything about org-roam-gt.
-
-*** Remembering the view
-
-The sort key, the displayed columns, and the active filters are kept for
-as long as the buffer lives.  To carry them across Emacs sessions:
+To keep the columns, search, and sort order of the buffer between Emacs
+sessions as well:
 
 #+begin_src emacs-lisp
 (setq org-roam-gt-list-persist-state t)
 #+end_src
 
-They are then written to ~org-roam-gt-list-state-file~ whenever they change
-and re-read the next time the mode is entered.  Point is not persisted.
+*** Choosing the columns
+
+To change which columns you see, and in what order:
+
+#+begin_src emacs-lisp
+(setq org-roam-gt-list-columns '(todo date tags title file))
+#+end_src
+
+Inside the buffer, ~c~ shows or hides a single column and ~C~ sets the whole
+list at once.  A column you turn on appears to the left of ~title~ and
+~file~, which stay on the right where you expect to read them.
+
+To give a column more room:
+
+#+begin_src emacs-lisp
+(setq org-roam-gt-list-column-widths '((title . 80) (file . 60)))
+#+end_src
+
+The default widths fit the first four columns into roughly 90 characters
+and leave the rest of the window to the last one.  To change how dates are
+written, set ~org-roam-gt-list-date-format~; keep the year first if you want
+sorting by date to stay chronological.
+
+*** Adding your own search condition
+
+The searches offered by ~/~ are entries in ~org-roam-gt-list-filter-alist~,
+and you can add your own.  An entry names a function to ask the user for
+values and a function to test one node against one value:
+
+#+begin_src emacs-lisp
+(add-to-list 'org-roam-gt-list-filter-alist
+             (cons 'by-alias
+                   (list :name "Alias"
+                         :reader (lambda ()
+                                   (list (read-string "Alias: ")))
+                         :predicate (lambda (node alias)
+                                      (member alias (org-roam-node-aliases node)))
+                         :doc "Nodes that have the given alias.")))
+#+end_src
+
+The reader returns a list, even for a single value; the predicate is asked
+about one value at a time.  Matching any of several values, excluding with
+~C-u~, and appearing in the mode line are handled for you.
 
 ** Development
 
