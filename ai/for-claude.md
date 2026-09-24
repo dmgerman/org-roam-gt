@@ -39,10 +39,12 @@ patch org-roam source files. Two independent features:
 ## File layout
 
 ```
-modules/org-roam-gt/
-├── org-roam-gt.el            # minor mode, node display
+modules/dmg/org-roam-gt/
+├── org-roam-gt.el            # minor mode, node display, canonicalization
 ├── org-roam-gt-capture.el    # new target types + template-body / :create-file
+├── org-roam-gt-refile.el     # refile to a :target, node-based types only
 ├── org-roam-gt-transient.el  # opt-in speed-command menu (transient)
+├── org-roam-gt-list.el       # read-only *Org Roam Nodes* buffer
 ├── readme.org                # user-facing documentation
 ├── org-roam-gt.info          # info manual generated from readme.org
 ├── dir                       # info directory entry for the manual
@@ -52,6 +54,10 @@ modules/org-roam-gt/
 └── tests/
     ├── test-helper.el
     ├── test-org-roam-gt-capture.el
+    ├── test-org-roam-gt-refile.el
+    ├── test-org-roam-gt-canonicalize.el
+    ├── test-org-roam-gt-citations.el
+    ├── test-org-roam-gt-list.el
     └── roam-files/           # fixture .org files for tests
 ```
 
@@ -60,8 +66,9 @@ modules/org-roam-gt/
 `org-roam-gt-version` is both a constant and an interactive command
 (one symbol, two cells, as with `emacs-version`), defined in
 `org-roam-gt.el` only.  It does not read the file header, so a release
-bump must change five places together: the constant, and the
-`;; Version:` header of each of the four `.el` files.
+bump must change six places together: the constant, and the
+`;; Version:` header of each of the five `.el` files (the fifth is
+`org-roam-gt-list.el`).
 
 ## How the capture extension works
 
@@ -310,6 +317,144 @@ before adding all templates, so re-evaluating the block is idempotent.
 | `c` | Cooking recipe | `node+headline "area-cooking-20240921-012344" "Recipes"` |
 | `q` | Quick todo (daily) | `nodefunc+headline dmg-roam-dailies-setup-destination-day "Actions"` |
 | `a` | Link from Ahmed | `node "id-links-from-ahmed"` (standard) |
+
+## Node list buffer (`org-roam-gt-list.el`)
+
+`M-x org-roam-gt-list` opens `*Org Roam Nodes*`, a `tabulated-list-mode`
+buffer with one row per node. It is read only: there is no command in the
+mode that writes a node, a file, or a database record. It installs no advice
+on org-roam and does not require `org-roam-gt-mode`.
+
+### Two registries
+
+| Registry | Entry shape |
+|---|---|
+| `org-roam-gt-list-column-alist` | `(KEY :name STRING :width INT :value FN :face FACE :sort SORT :doc STRING)` |
+| `org-roam-gt-list-filter-alist` | `(KEY :name STRING :reader FN :predicate FN :doc STRING)` |
+
+`:value` is called with one `org-roam-node` and returns the cell string.
+`:sort` is nil (not sortable), `t` (sort on the displayed string), or a
+comparator taking two `tabulated-list-entries` elements.
+
+`:reader` returns a **list** of values even when it read one. `:predicate`
+is called as `(NODE VALUE)` with a **single** value. Combining the values
+and applying negation happens once, in
+`org-roam-gt-list--filter-matches-p`, so predicates stay one-value and
+every new filter gets multi-value and negation for free.
+
+### Selecting on several attributes
+
+`org-roam-gt-list--filters` is a list of plists
+`(:key KEY :values LIST :negate BOOLEAN)` — **not** an alist, because a key
+may repeat. The two axes do opposite things and both are needed:
+
+- **`seq-some` over `:values`** — several values of one attribute *widen*
+  (tags jp,ww = either).
+- **`seq-every-p` over the filter list** — separate filters *narrow* (two
+  `by-tag` filters = both tags).
+
+`:negate` inverts a filter *as a whole*, after the values are combined, so
+negating tags jp,ww selects nodes carrying neither — not nodes missing jp
+ORed with nodes missing ww.
+
+Gotchas:
+
+- **`org-roam-gt-list-filter-by` appends; it must not `assq-delete-all`.**
+  That call is what used to make a second `by-tag` replace the first, and
+  removing it is the whole of "select by more than one attribute". Exact
+  duplicates are skipped so the indicator stays readable.
+- **The regexp readers return `(list (read-regexp ...))`, not a
+  `completing-read-multiple`.** A comma is an ordinary regexp character;
+  splitting on it would corrupt the pattern.
+- **Old state files and bookmarks hold the `(KEY . ARG)` alist shape.**
+  `org-roam-gt-list--normalize-filters` upgrades them, and is applied at the
+  two restore boundaries (`--state-apply` and `--bookmark-jump`) rather than
+  in `--apply-filters`, which runs per redraw over every node.
+- **The mode line reads cached counts** (`--shown` / `--total`, recorded by
+  `--entries`). Re-filtering inside the `:eval` would apply every predicate
+  to every node many times a second.
+
+Columns, in registry order, with default widths: `todo`(6) `date`(10)
+`tags`(20) `priority`(1) `scheduled`(10) `deadline`(10) `level`(1)
+`olp`(30) `title`(50) `file`(30) — a default row fits in ~120 columns.
+Filters: `by-tag by-todo by-level by-title-regexp by-file-regexp`, plus the
+built-in `unfilter`.
+
+`tabulated-list-padding` is 0, not 1. The 1-column gutter exists to hold
+mark characters; this buffer is read only, so padding it would only shift
+every column one in from the left edge.
+
+Tags are joined with `", "`, not `" "`. Space-separated tags read as one run
+of text once the cell is truncated — which is what a reader reported the
+first time this shipped with `#tag #tag`.
+
+### Design points that are easy to get wrong
+
+- **`org-roam-gt-list-columns` is both the visible set and the order.**
+  Showing, hiding, and reordering are one list, not three mechanisms.
+  `org-roam-gt-list-toggle-column` re-inserts a column at its *registry*
+  position; `org-roam-gt-list-set-columns` takes an explicit order.
+- **`title` and `file` are last in the registry deliberately.** They are the
+  two free-form columns, so registry order puts every other column before
+  them — turning one on must not displace them. Do not reorder the registry
+  without preserving that.
+- **Every cell is truncated to its column width with an ellipsis, except
+  the last displayed one.** The last column is declared width 0 —
+  tabulated-list's way of saying "take the rest of the line" — and
+  `org-roam-gt-list--cell` is passed EXPAND for it so the two agree.
+  Nothing follows the last column to be pushed out of place, so bounding it
+  would discard text for no gain. The exemption belongs to the *position*,
+  not to a particular column: move another column after `file` and `file`
+  is truncated like the rest. There is a test for each direction.
+- **The node list is cached per buffer** (`org-roam-gt-list--nodes`). Only
+  `revert-buffer` (`g`) re-queries. Re-querying per redraw would make every
+  sort and every column toggle pay for a full table scan of the database
+  (~2700 nodes on the author's).
+- **Rows are re-found by node id after a redraw.** `org-roam-node-list`
+  builds fresh structs on every read, so no struct identity survives a
+  revert; `--redraw-preserving-point` looks the row up by
+  `org-roam-node-id`.
+- **`--valid-sort-key` guards the format/sort-key invariant.** Hiding the
+  column a buffer is sorted by would otherwise leave
+  `tabulated-list-sort-key` naming a column absent from the format vector.
+  It falls back to the first sortable displayed column.
+- **The one advice is `:after` on `tabulated-list-sort`**, guarded by
+  `derived-mode-p`. Sorting by clicking a column header never passes through
+  a command of this mode, so it is the only place the new sort key can be
+  observed for state persistence.
+- **Filter readers offer only what the cached nodes carry**, not everything
+  the database could hold. A tag on no displayed node is not a useful
+  candidate and would produce an empty buffer with no indication why.
+- **Value shapes from the database**, confirmed against a live DB: `priority`
+  is a character code (65 → `"A"`), `scheduled`/`deadline` are ISO8601
+  strings (`"2026-05-06T00:00:00"` → `"2026-05-06"`), `file-mtime` is an
+  Emacs time value, `tags`/`olp` are lists of strings, `level` is 0 for a
+  file-level node.
+
+### Bookmarks
+
+The buffer sets `bookmark-make-record-function` to
+`org-roam-gt-list--make-record`, which records `columns`, `filters`, and
+`sort-key` — the same three facts the state file persists — plus a `handler`
+of `org-roam-gt-list-bookmark-jump` (autoloaded, so a jump works before the
+file is loaded). It deliberately records **no** `position` and no
+`filename`: the row under point moves whenever the database changes, so a
+position would restore to the wrong node. The jump re-reads the database
+rather than restoring a node snapshot.
+
+This is plain `bookmark.el`, with no knowledge of bookmark-gt or any other
+front end — consistent with the module's "no coupling to callers"
+constraint. A bookmark-gt handler-registry entry (for a typed name and face
+in its list buffer) would be a reasonable opt-in addition, but it would put
+knowledge of bookmark-gt into org-roam-gt and has deliberately been left out.
+
+### Tests
+
+`tests/test-org-roam-gt-list.el` binds `org-roam-gt-list--nodes` to nodes
+built with `org-roam-node-create`, so the whole suite runs with no live
+database. One spec binds `debug-on-error` back to nil: `with-demoted-errors`
+expands to `condition-case-unless-debug`, which re-signals under buttercup's
+`debug-on-error`, so the malformed-state-file path is otherwise untestable.
 
 ## Dev workflow
 

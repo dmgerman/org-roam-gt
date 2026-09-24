@@ -13,10 +13,12 @@ It does **not** patch org-roam source files.
 | `org-roam-gt-capture.el` | New capture target types + template-body / :create-file (advice only) |
 | `org-roam-gt-refile.el` | `org-roam-gt-refile`: refile to a `:target`, node-based types only, no advice |
 | `org-roam-gt-transient.el` | Opt-in speed-command menu built with `transient` |
+| `org-roam-gt-list.el` | `org-roam-gt-list`: read-only `*Org Roam Nodes*` buffer (column/filter registries, no advice on org-roam) |
 | `tests/test-org-roam-gt-capture.el` | Buttercup test suite (capture) |
 | `tests/test-org-roam-gt-refile.el` | Buttercup test suite (refile) |
 | `tests/test-org-roam-gt-canonicalize.el` | Buttercup test suite (symlink aliases; builds real symlink trees) |
 | `tests/test-org-roam-gt-citations.el` | Buttercup test suite (citation scan; compared against org's own parse) |
+| `tests/test-org-roam-gt-list.el` | Buttercup test suite (node list; nodes built in-process, no live database) |
 | `tests/test-helper.el` | Load-path setup for batch testing |
 | `Makefile` | `make`, `make test`, `make lint`, `make checkdoc`, `make check-declare`, `make check`, `make info`, `make clean` |
 | `org-roam-gt.info`, `dir` | Info manual generated from `readme.org` via `make info` (committed artifacts consumed by ELPA activation) |
@@ -85,6 +87,20 @@ skipping the parse without replacing the walk reports no citations. When
 scanning, read match data before calling `org-element-context` — it runs its
 own searches and clobbers it, which is how the scan loop once failed to
 terminate.
+
+`org-roam-gt-list.el` installs no advice on org-roam at all — it only reads
+`org-roam-node-list`. The one advice it does install is `:after` on
+`tabulated-list-sort`, guarded by `derived-mode-p`, because sorting by
+clicking a column header never passes through a command of the mode and is
+otherwise unobservable for state persistence. Columns and filters are each a
+plain alist registry (`org-roam-gt-list-column-alist`,
+`org-roam-gt-list-filter-alist`); `org-roam-gt-list-columns` selects a subset
+of the column registry *and* its left-to-right order, so showing, hiding, and
+reordering are one mechanism rather than three. The node list is read once per
+revert into a buffer-local cache — sorting, filtering, and column changes
+redraw from it, so only `g` pays for a table scan. Rows are re-found by node
+id after a redraw, since `org-roam-node-list` builds fresh structs every read
+and no struct identity survives.
 
 What each node-based target means *inside* the destination node lives in
 `org-roam-gt-capture-target-validate` and `org-roam-gt-capture-target-navigate`
