@@ -325,6 +325,20 @@ buffer with one row per node. It is read only: there is no command in the
 mode that writes a node, a file, or a database record. It installs no advice
 on org-roam and does not require `org-roam-gt-mode`.
 
+**`org-roam-gt.el` requires this file** — the node list is part of the
+package, not an opt-in extra like the transient menu. The reason is
+bookmarks: `org-roam-gt-list-bookmark-jump` is stored as the `handler` of
+every bookmark saving a node-list view, and a bookmark whose handler is
+undefined fails with `void-function` when jumped. The `;;;###autoload`
+cookie only covers package.el installs, where an autoloads file is
+generated; a `:load-path` install generates none, so the cookie is inert
+there and the require is what makes the handler exist.
+
+That require runs **after** the `defgroup` in `org-roam-gt.el`, because
+this file declares options in that group. Correspondingly, this file must
+**not** `(require 'org-roam-gt)` — that would be a cycle. It needs nothing
+from `org-roam-gt.el` but the group.
+
 ### Two registries
 
 | Registry | Entry shape |

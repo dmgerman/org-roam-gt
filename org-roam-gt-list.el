@@ -40,15 +40,19 @@
 ;; Filter registry (`org-roam-gt-list-filter-alist') is a plain alist;
 ;; see its defvar docstring for the entry shape.
 ;;
-;; Entry point: \\[org-roam-gt-list].  It does not require
-;; `org-roam-gt-mode' to be enabled and installs no advice on
-;; org-roam; it only reads the database.
+;; Entry point: \\[org-roam-gt-list].  Loading `org-roam-gt' loads this
+;; file, so the command is always available; enabling
+;; `org-roam-gt-mode' is not required.  This file installs no advice on
+;; org-roam and only reads the database.
 
 ;;; Code:
 
+;; `org-roam-gt' is deliberately not required here: it requires this
+;; file, and the dependency has to run in that direction so that loading
+;; org-roam-gt provides the node list.  The `org-roam-gt' customization
+;; group this file adds options to is defined there, before the require.
 (require 'bookmark)
 (require 'org-roam)
-(require 'org-roam-gt)
 (require 'seq)
 (require 'tabulated-list)
 

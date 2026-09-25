@@ -13,7 +13,7 @@ It does **not** patch org-roam source files.
 | `org-roam-gt-capture.el` | New capture target types + template-body / :create-file (advice only) |
 | `org-roam-gt-refile.el` | `org-roam-gt-refile`: refile to a `:target`, node-based types only, no advice |
 | `org-roam-gt-transient.el` | Opt-in speed-command menu built with `transient` |
-| `org-roam-gt-list.el` | `org-roam-gt-list`: read-only `*Org Roam Nodes*` buffer (column/filter registries, no advice on org-roam) |
+| `org-roam-gt-list.el` | `org-roam-gt-list`: read-only `*Org Roam Nodes*` buffer (column/filter registries, no advice on org-roam). Required by `org-roam-gt.el`, so it is always loaded — its bookmark handler must exist for saved views to jump |
 | `tests/test-org-roam-gt-capture.el` | Buttercup test suite (capture) |
 | `tests/test-org-roam-gt-refile.el` | Buttercup test suite (refile) |
 | `tests/test-org-roam-gt-canonicalize.el` | Buttercup test suite (symlink aliases; builds real symlink trees) |

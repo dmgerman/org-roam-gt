@@ -765,11 +765,9 @@ node in the database, one node per row.  From it you can:
 You can leave it open while you edit your notes, and press ‘g’ when you
 want it to catch up.
 
-   Load it with:
-
-     (require 'org-roam-gt-list)
-
-   It works whether or not ‘org-roam-gt-mode’ is enabled.
+   Nothing needs to be loaded or enabled first: the command is part of
+‘org-roam-gt’ and is available as soon as the package is, whether or not
+‘org-roam-gt-mode’ is on.
 
 * Menu:
 
@@ -1040,16 +1038,16 @@ Node: Citations without a whole-buffer parse27351
 Node: Speed commands29131
 Node: Faster node search29805
 Node: Node list buffer30647
-Node: What each row shows32092
-Node: Finding what you want33966
-Ref: Sorting34150
-Ref: Searching34340
-Node: Keys37358
-Node: Saving a view you use often38464
-Node: Choosing the columns39387
-Node: Adding your own search condition40326
-Node: Development41431
-Node: MELPA submission42285
+Node: What each row shows32156
+Node: Finding what you want34030
+Ref: Sorting34214
+Ref: Searching34404
+Node: Keys37422
+Node: Saving a view you use often38528
+Node: Choosing the columns39451
+Node: Adding your own search condition40390
+Node: Development41495
+Node: MELPA submission42349
 
 End Tag Table
 
