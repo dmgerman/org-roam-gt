@@ -436,6 +436,174 @@ the node renderable."
               (list (org-roam-gt-test-list--filter 'no-such-filter '("x"))))
         (expect (length (org-roam-gt-test-list--titles)) :to-equal 3)))))
 
+;;; Date ranges
+
+(describe "org-roam-gt-list date ranges"
+
+  (defun org-roam-gt-test-list--day (offset)
+    "Return the date OFFSET days from today as YYYY-MM-DD."
+    (format-time-string "%Y-%m-%d"
+                        (time-add (current-time) (days-to-time offset))))
+
+  (before-each
+    ;; The resolver memoizes per day; clear it so one spec's result
+    ;; cannot leak into another spec's assertion.
+    (setq org-roam-gt-list--date-range-cache nil))
+
+  (it "reads both ends of a range in Org's date syntax"
+    (expect (org-roam-gt-list--resolve-date-range "-3d,+5d")
+            :to-equal (cons (org-roam-gt-test-list--day -3)
+                            (org-roam-gt-test-list--day 5))))
+
+  (it "treats an empty side as unbounded"
+    (expect (car (org-roam-gt-list--resolve-date-range ",+5d")) :to-be nil)
+    (expect (cdr (org-roam-gt-list--resolve-date-range "-3d,")) :to-be nil))
+
+  (it "accepts an absolute date"
+    (expect (car (org-roam-gt-list--resolve-date-range "2026-01-01,"))
+            :to-equal "2026-01-01"))
+
+  (it "reads a bare 0 as today, not as the year 2000"
+    ;; `org-read-date' parses "0" as the year 2000; nobody typing it in
+    ;; a range means that.
+    (expect (org-roam-gt-list--date-bound "0")
+            :to-equal (org-roam-gt-test-list--day 0)))
+
+  (it "resolves the presets"
+    (expect (org-roam-gt-list--resolve-date-range "any")
+            :to-equal (cons nil nil))
+    (expect (org-roam-gt-list--resolve-date-range "today")
+            :to-equal (cons (org-roam-gt-test-list--day 0)
+                            (org-roam-gt-test-list--day 0)))
+    (expect (org-roam-gt-list--resolve-date-range "overdue")
+            :to-equal (cons nil (org-roam-gt-test-list--day -1)))
+    (expect (org-roam-gt-list--resolve-date-range "due")
+            :to-equal (cons nil (org-roam-gt-test-list--day 0)))
+    (expect (org-roam-gt-list--resolve-date-range "next-7d")
+            :to-equal (cons (org-roam-gt-test-list--day 0)
+                            (org-roam-gt-test-list--day 7))))
+
+  (it "spans Monday to Sunday for this-week"
+    (let* ((range (org-roam-gt-list--resolve-date-range "this-week"))
+           (dow (lambda (d) (format-time-string
+                             "%u" (org-time-string-to-time d)))))
+      (expect (funcall dow (car range)) :to-equal "1")
+      (expect (funcall dow (cdr range)) :to-equal "7")))
+
+  (it "spans the first to the last day of the month for this-month"
+    (let ((range (org-roam-gt-list--resolve-date-range "this-month")))
+      (expect (car range) :to-equal (format-time-string "%Y-%m-01"))
+      (expect (cdr range)
+              :to-equal (format-time-string
+                         "%Y-%m-%d"
+                         (encode-time
+                          0 0 12
+                          (calendar-last-day-of-month
+                           (decoded-time-month (decode-time))
+                           (decoded-time-year (decode-time)))
+                          (decoded-time-month (decode-time))
+                          (decoded-time-year (decode-time)))))))
+
+  (it "signals on a date it cannot read"
+    ;; `org-read-date' returns today for input it cannot parse rather
+    ;; than signalling, so without the check a typo would be read as
+    ;; today and silently select the wrong nodes.
+    (dolist (bad '("not-a-date," "+3x," "yesterday," "3days,"))
+      (expect (org-roam-gt-list--resolve-date-range bad)
+              :to-throw 'user-error)))
+
+  (it "accepts every date form it documents"
+    (dolist (good '("." "today" "now" "+3d" "-2w" "+1m" "++2d" "+3"
+                    "2026-01-01" "mon" "SUN"))
+      (expect (org-roam-gt-list--date-bound good) :to-match
+              "\\`[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\'")))
+
+  (it "includes both ends of the range"
+    (let ((spec "-1d,+1d"))
+      (expect (org-roam-gt-list--date-matches-p
+               (concat (org-roam-gt-test-list--day -1) "T00:00:00") spec)
+              :to-be-truthy)
+      (expect (org-roam-gt-list--date-matches-p
+               (concat (org-roam-gt-test-list--day 1) "T00:00:00") spec)
+              :to-be-truthy)
+      (expect (org-roam-gt-list--date-matches-p
+               (concat (org-roam-gt-test-list--day -2) "T00:00:00") spec)
+              :not :to-be-truthy)
+      (expect (org-roam-gt-list--date-matches-p
+               (concat (org-roam-gt-test-list--day 2) "T00:00:00") spec)
+              :not :to-be-truthy)))
+
+  (it "never matches a node that has no date"
+    (expect (org-roam-gt-list--date-matches-p nil "any")
+            :not :to-be-truthy)
+    (expect (org-roam-gt-list--date-matches-p nil ",")
+            :not :to-be-truthy))
+
+  (it "matches any node that has a date under the `any' preset"
+    (expect (org-roam-gt-list--date-matches-p "2001-01-01T00:00:00" "any")
+            :to-be-truthy))
+
+  (it "discards the memo when the day changes"
+    (org-roam-gt-list--date-range "today")
+    (setcar org-roam-gt-list--date-range-cache "1970-01-01")
+    (expect (org-roam-gt-list--date-range "today")
+            :to-equal (cons (org-roam-gt-test-list--day 0)
+                            (org-roam-gt-test-list--day 0)))
+    (expect (car org-roam-gt-list--date-range-cache)
+            :to-equal (org-roam-gt-test-list--day 0)))
+
+  (it "narrows the list by scheduled and by deadline"
+    (let ((nodes (list (org-roam-gt-test-list--node
+                        :id "s1" :title "Soon"
+                        :scheduled (concat (org-roam-gt-test-list--day 1)
+                                           "T00:00:00"))
+                       (org-roam-gt-test-list--node
+                        :id "s2" :title "Later"
+                        :scheduled (concat (org-roam-gt-test-list--day 30)
+                                           "T00:00:00"))
+                       (org-roam-gt-test-list--node
+                        :id "d1" :title "Late"
+                        :deadline (concat (org-roam-gt-test-list--day -2)
+                                          "T00:00:00"))
+                       (org-roam-gt-test-list--node
+                        :id "n1" :title "Undated"))))
+      (org-roam-gt-test-list--with-nodes nodes
+        (setq org-roam-gt-list--filters
+              (list (org-roam-gt-test-list--filter
+                     'by-scheduled '("next-7d"))))
+        (expect (org-roam-gt-test-list--titles) :to-equal '("Soon"))
+        (setq org-roam-gt-list--filters
+              (list (org-roam-gt-test-list--filter
+                     'by-deadline '("overdue"))))
+        (expect (org-roam-gt-test-list--titles) :to-equal '("Late"))
+        ;; C-u / on "any" is how "has no deadline" is expressed.
+        (setq org-roam-gt-list--filters
+              (list (org-roam-gt-test-list--filter
+                     'by-deadline '("any") t)))
+        (expect (org-roam-gt-test-list--titles)
+                :to-equal '("Soon" "Later" "Undated")))))
+
+  (it "includes today in `due' but not in `overdue'"
+    (let ((today (concat (org-roam-gt-test-list--day 0) "T00:00:00"))
+          (yesterday (concat (org-roam-gt-test-list--day -1) "T00:00:00"))
+          (tomorrow (concat (org-roam-gt-test-list--day 1) "T00:00:00")))
+      (expect (org-roam-gt-list--date-matches-p today "due") :to-be-truthy)
+      (expect (org-roam-gt-list--date-matches-p yesterday "due")
+              :to-be-truthy)
+      (expect (org-roam-gt-list--date-matches-p tomorrow "due")
+              :not :to-be-truthy)
+      (expect (org-roam-gt-list--date-matches-p today "overdue")
+              :not :to-be-truthy)))
+
+  (it "makes `due' the same range as the free-form \",today\""
+    (expect (org-roam-gt-list--resolve-date-range "due")
+            :to-equal (org-roam-gt-list--resolve-date-range ",today")))
+
+  (it "describes a date search the way it was typed"
+    (expect (org-roam-gt-list--filter-description
+             (org-roam-gt-test-list--filter 'by-deadline '("overdue")))
+            :to-equal "deadline=overdue")))
+
 ;;; View state
 
 (describe "org-roam-gt-list view state"
