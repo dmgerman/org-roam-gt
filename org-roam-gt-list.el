@@ -52,6 +52,8 @@
 ;; org-roam-gt provides the node list.  The `org-roam-gt' customization
 ;; group this file adds options to is defined there, before the require.
 (require 'bookmark)
+(require 'calendar)
+(require 'org)
 (require 'org-roam)
 (require 'seq)
 (require 'tabulated-list)
@@ -681,8 +683,15 @@ Buffer-scoped commands:
   \\[revert-buffer] re-read the database, then redraw
   \\[quit-window] quit
 
-Filters are by-tag, by-todo, by-level, by-title-regexp,
-by-file-regexp, and unfilter.
+Filters are by-tag, by-todo, by-level, by-scheduled, by-deadline,
+by-title-regexp, by-file-regexp, and unfilter.
+
+The scheduled and deadline searches take a preset name
+\(\"overdue\", \"due\", \"today\", \"next-7d\", \"this-week\",
+\"this-month\", \"any\") or a \"FROM,TO\" range in Org's date syntax,
+such as \"-3d,+5d\".  Either side may be left empty for no limit.  The
+range is stored as typed and resolved when it is applied, so a
+saved view stays relative to the day you open it.
 
 Selecting on more than one attribute is a matter of applying more
 than one filter.  Values within a single filter WIDEN the
@@ -1075,6 +1084,153 @@ all of them at once."
 ;; useful completion candidate, and offering it would produce an
 ;; empty buffer with no indication why.
 
+;;;; Date ranges for the scheduled and deadline searches
+;;
+;; A search on a date is stored as the string the user typed — a preset
+;; name like "overdue", or a "FROM,TO" range — and resolved to a pair of
+;; dates each time it is applied, never at the moment it is entered.
+;; That is what keeps a bookmarked view relative: "deadlines in the next
+;; seven days" still means the next seven days a month later, where a
+;; pair of resolved dates would have frozen.
+;;
+;; Both ends of a range use Org's own date syntax, so there is no new one
+;; to learn: "+3d", "-2w", "+1m", "mon", "2026-01-01" all work.  Dates
+;; are compared as YYYY-MM-DD strings, which orders them chronologically
+;; and costs nothing over a large database.
+
+(defconst org-roam-gt-list-date-range-presets
+  '("overdue" "due" "today" "next-7d" "this-week" "this-month" "any")
+  "Preset names accepted by the scheduled and deadline searches.
+Offered for completion; any \"FROM,TO\" range is accepted too.")
+
+(defvar org-roam-gt-list--date-range-cache nil
+  "Cons of (DAY . ALIST) memoizing resolved date ranges.
+DAY is the date the entries were resolved on, so the cache is
+discarded when the day changes and a relative range such as
+\"next-7d\" keeps meaning the next seven days.  ALIST maps a spec
+string to its resolved (FROM . TO).
+
+Resolving is memoized because the predicate runs once per node:
+re-reading the spec for every row of a large database would call
+`org-read-date' thousands of times per redraw.")
+
+(defun org-roam-gt-list--today ()
+  "Return today's date as a YYYY-MM-DD string."
+  (format-time-string "%Y-%m-%d"))
+
+(defconst org-roam-gt-list--date-bound-regexp
+  (concat "\\`\\(?:"
+          "[.]"                                  ; . — today
+          "\\|today\\|now"
+          "\\|[-+]\\{1,2\\}[0-9]+[dwmy]?"        ; +3d, -2w, +1m, ++2d, +3
+          "\\|[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" ; 2026-01-01
+          "\\|mon\\|tue\\|wed\\|thu\\|fri\\|sat\\|sun"
+          "\\)\\'")
+  "Date forms accepted at either end of a range.
+Input is matched against this before `org-read-date' converts it,
+and anything else is rejected.  The check is needed because
+`org-read-date' returns today's date for input it cannot parse
+instead of signalling an error: without it, a typo such as \"+3x\"
+would be read as today and select the wrong nodes, with no error
+reported.")
+
+(defun org-roam-gt-list--date-bound (spec)
+  "Return SPEC as a YYYY-MM-DD string, or nil when SPEC is empty.
+SPEC is in Org's date syntax: a relative offset (\"+3d\", \"-2w\",
+\"+1m\"), an absolute date (\"2026-01-01\"), a weekday (\"mon\"), or
+\".\"/\"today\".  Signals a `user-error' on anything else."
+  (let ((text (downcase (string-trim (or spec "")))))
+    (cond
+     ((string-empty-p text) nil)
+     ;; `org-read-date' reads a bare "0" as the year 2000, which is not
+     ;; a plausible reading of it inside a range.  Treat it as today.
+     ((equal text "0") (org-roam-gt-list--today))
+     ((not (string-match-p org-roam-gt-list--date-bound-regexp text))
+      (user-error
+       "Cannot read `%s' as a date; use \".\", +3d, -2w, +1m, mon, or 2026-01-01"
+       text))
+     (t (org-read-date nil nil text)))))
+
+(defun org-roam-gt-list--week-range ()
+  "Return (FROM . TO) spanning the week containing today, Monday first."
+  (let* ((now (current-time))
+         (since-monday (mod (- (decoded-time-weekday (decode-time now)) 1) 7)))
+    (cons (format-time-string
+           "%Y-%m-%d" (time-subtract now (days-to-time since-monday)))
+          (format-time-string
+           "%Y-%m-%d" (time-add now (days-to-time (- 6 since-monday)))))))
+
+(defun org-roam-gt-list--month-range ()
+  "Return (FROM . TO) spanning the calendar month containing today."
+  (let* ((now (decode-time))
+         (year (decoded-time-year now))
+         (month (decoded-time-month now)))
+    (cons (format "%04d-%02d-01" year month)
+          (format "%04d-%02d-%02d" year month
+                  (calendar-last-day-of-month month year)))))
+
+(defun org-roam-gt-list--resolve-date-range (spec)
+  "Return (FROM . TO) for SPEC, as YYYY-MM-DD strings or nil for unbounded.
+SPEC is a name from `org-roam-gt-list-date-range-presets' or a
+\"FROM,TO\" range in Org's date syntax.  Either side of a range may
+be empty, meaning unbounded on that side."
+  (pcase (string-trim (or spec ""))
+    ("any"        (cons nil nil))
+    ("today"      (let ((day (org-roam-gt-list--today))) (cons day day)))
+    ("overdue"    (cons nil (org-roam-gt-list--date-bound "-1d")))
+    ;; "due" is "overdue" with today included: what is outstanding now.
+    ("due"        (cons nil (org-roam-gt-list--today)))
+    ("next-7d"    (cons (org-roam-gt-list--today)
+                        (org-roam-gt-list--date-bound "+7d")))
+    ("this-week"  (org-roam-gt-list--week-range))
+    ("this-month" (org-roam-gt-list--month-range))
+    (range
+     (let ((sides (split-string range "," nil)))
+       (unless (<= (length sides) 2)
+         (user-error "A date range takes at most one comma: %s" range))
+       (cons (org-roam-gt-list--date-bound (nth 0 sides))
+             (org-roam-gt-list--date-bound (nth 1 sides)))))))
+
+(defun org-roam-gt-list--date-range (spec)
+  "Return the resolved (FROM . TO) for SPEC, memoized for today."
+  (let ((today (org-roam-gt-list--today)))
+    (unless (equal (car org-roam-gt-list--date-range-cache) today)
+      (setq org-roam-gt-list--date-range-cache (cons today nil)))
+    (let ((known (assoc spec (cdr org-roam-gt-list--date-range-cache))))
+      (if known
+          (cdr known)
+        (let ((range (org-roam-gt-list--resolve-date-range spec)))
+          (setcdr org-roam-gt-list--date-range-cache
+                  (cons (cons spec range)
+                        (cdr org-roam-gt-list--date-range-cache)))
+          range)))))
+
+(defun org-roam-gt-list--date-matches-p (timestamp spec)
+  "Return non-nil when TIMESTAMP falls in the range SPEC describes.
+TIMESTAMP is the ISO8601 string the database stores, or nil.  A
+node without the date never matches, so \"any\" selects exactly
+the nodes that have one."
+  (let ((date (org-roam-gt-list--iso-date timestamp)))
+    (and (not (string-empty-p date))
+         (let ((range (org-roam-gt-list--date-range spec)))
+           (and (or (null (car range)) (not (string< date (car range))))
+                (or (null (cdr range)) (not (string< (cdr range) date))))))))
+
+(defun org-roam-gt-list--read-date-range (prompt)
+  "Read a date range for PROMPT, returning it as a one-element list.
+Completion offers `org-roam-gt-list-date-range-presets'; any
+\"FROM,TO\" range is accepted as well.  The range is resolved once
+here so an unreadable date is reported now rather than on every
+later redraw.  Returns nil when nothing was entered."
+  (let ((spec (string-trim
+               (completing-read
+                (format "%s (preset, or FROM,TO): " prompt)
+                org-roam-gt-list-date-range-presets
+                nil nil))))
+    (unless (string-empty-p spec)
+      (org-roam-gt-list--resolve-date-range spec)
+      (list spec))))
+
 (defun org-roam-gt-list--all-tags ()
   "Return every tag present on a cached node, deduplicated and sorted."
   (sort (delete-dups
@@ -1131,6 +1287,31 @@ keywords.")))
                                (not file-level-p))))
                          :doc "Show only file-level nodes, or only heading \
 nodes.")))
+
+(add-to-list 'org-roam-gt-list-filter-alist
+             (cons 'by-scheduled
+                   (list :name "Scheduled"
+                         :reader (lambda ()
+                                   (org-roam-gt-list--read-date-range
+                                    "Scheduled"))
+                         :predicate
+                         (lambda (node spec)
+                           (org-roam-gt-list--date-matches-p
+                            (org-roam-node-scheduled node) spec))
+                         :doc "Show only nodes scheduled in a date range.")))
+
+(add-to-list 'org-roam-gt-list-filter-alist
+             (cons 'by-deadline
+                   (list :name "Deadline"
+                         :reader (lambda ()
+                                   (org-roam-gt-list--read-date-range
+                                    "Deadline"))
+                         :predicate
+                         (lambda (node spec)
+                           (org-roam-gt-list--date-matches-p
+                            (org-roam-node-deadline node) spec))
+                         :doc "Show only nodes with a deadline in a date \
+range.")))
 
 (add-to-list 'org-roam-gt-list-filter-alist
              (cons 'by-title-regexp

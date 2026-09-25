@@ -371,6 +371,39 @@ may repeat. The two axes do opposite things and both are needed:
 negating tags jp,ww selects nodes carrying neither — not nodes missing jp
 ORed with nodes missing ww.
 
+### Date ranges (`by-scheduled`, `by-deadline`)
+
+The stored value is the **spec string the user typed** (`"overdue"`,
+`"-3d,+5d"`), not a resolved pair of dates. `org-roam-gt-list--date-range`
+converts it when the filter is applied. This is what keeps a bookmarked
+view relative: a saved "next-7d" means the next seven days on the day it is
+opened, where resolved dates would have fixed it to the week it was saved.
+
+Each end of a range is converted by `org-read-date`, so Org's date syntax
+applies and there is no separate one to maintain. Two properties of
+`org-read-date` are handled explicitly:
+
+- **It returns today's date for input it cannot parse, instead of
+  signalling.** A typo such as `+3x` would therefore be read as today and
+  select the wrong nodes with no error reported. Input is checked against
+  `org-roam-gt-list--date-bound-regexp` first, and anything not matching is
+  rejected with a `user-error`. Extending the accepted syntax means
+  extending that regexp, not only the documentation.
+- **It reads a bare `0` as the year 2000.** `--date-bound` maps `"0"` to
+  today before calling it.
+
+Ranges are compared as `YYYY-MM-DD` strings, which orders them
+chronologically, so no time parsing happens per node. Resolution is
+memoized in `org-roam-gt-list--date-range-cache`, keyed by the current
+day — the predicate runs once per node, and re-reading the spec for every
+row of a 2800-node database would call `org-read-date` thousands of times
+per redraw. Keying by day is what lets a relative range stay correct after
+midnight.
+
+A node whose scheduled or deadline value is absent never matches a range.
+That is what makes `any` mean "has one", and `C-u /` with `any` mean "has
+none" — otherwise inexpressible.
+
 Gotchas:
 
 - **`org-roam-gt-list-filter-by` appends; it must not `assq-delete-all`.**

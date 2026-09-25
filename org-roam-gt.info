@@ -828,10 +828,12 @@ File: org-roam-gt.info,  Node: Finding what you want,  Next: Keys,  Prev: What e
      Press ‘/’ and choose what to search on:
 
      Search on           Matches nodes whose…
-     --------------------------------------------------------------
+     ---------------------------------------------------------------
      ‘by-tag’            tags include one you name
      ‘by-todo’           TODO keyword is one you name
      ‘by-level’          level is whole-file, heading, or either
+     ‘by-scheduled’      scheduled date falls in a range you give
+     ‘by-deadline’       deadline falls in a range you give
      ‘by-title-regexp’   title matches a regular expression
      ‘by-file-regexp’    file name matches a regular expression
      ‘unfilter’          (removes every search condition)
@@ -862,17 +864,65 @@ File: org-roam-gt.info,  Node: Finding what you want,  Next: Keys,  Prev: What e
      Some examples:
 
      To see…                                 Do
-     -------------------------------------------------------------------------------------------
+     -----------------------------------------------------------------------------------------------------
      everything tagged ‘jp’                  ‘/’ ‘by-tag’ ‘jp’
      everything tagged ‘jp’ or ‘ww’          ‘/’ ‘by-tag’ ‘jp,ww’
      notes tagged both ‘jp’ and ‘ww’         ‘/’ ‘by-tag’ ‘jp’, then ‘/’ ‘by-tag’ ‘ww’
      unfinished work, done items hidden      ‘C-u /’ ‘by-todo’ ‘DONE’
      headings tagged ‘jp’, not whole files   ‘/’ ‘by-tag’ ‘jp’, then ‘/’ ‘by-level’ ‘heading’
      notes whose file is under ‘daily/’      ‘/’ ‘by-file-regexp’ ‘daily/’
+     deadlines already past                  ‘/’ ‘by-deadline’ ‘overdue’
+     everything outstanding now              ‘/’ ‘by-deadline’ ‘due’
+     what is scheduled in the coming week    ‘/’ ‘by-scheduled’ ‘next-7d’
+     notes with a deadline but no schedule   ‘/’ ‘by-deadline’ ‘any’, then ‘C-u /’ ‘by-scheduled’ ‘any’
 
      The regular-expression searches take a single pattern rather than a
      list, because a comma is an ordinary character in a regular
      expression.  Press ‘/’ again to add a second pattern.
+
+  3. Searching by scheduled date or deadline
+
+     ‘by-scheduled’ and ‘by-deadline’ ask for a date range.  Six names
+     are offered for the cases that come up most often:
+
+     Name           Matches a date that is
+     ----------------------------------------------------------
+     ‘overdue’      earlier than today
+     ‘due’          today or earlier
+     ‘today’        today
+     ‘next-7d’      today or within the following seven days
+     ‘this-week’    in the current week, Monday to Sunday
+     ‘this-month’   in the current calendar month
+     ‘any’          set to anything at all
+
+     For anything else, type a range as ‘FROM,TO’:
+
+     Range           Matches a date that is
+     -------------------------------------------------------------
+     ‘-3d,+5d’       between three days ago and five days ahead
+     ‘,today’        today or earlier — the same as ‘due’
+     ‘+1d,+7d’       in the coming week, not counting today
+     ‘2026-01-01,’   on or after 1 January 2026
+
+     Either side may be left empty, which means no limit in that
+     direction.  Both ends are included in the range.  Each side is
+     written in org's own date syntax, so a relative offset (‘+3d’,
+     ‘-2w’, ‘+1m’), an absolute date (‘2026-01-01’), a weekday name
+     (‘mon’), or ‘.’ for today all work.  A date that cannot be read is
+     reported when you enter it.
+
+     A node with no scheduled date or no deadline never matches a range,
+     so ‘any’ selects exactly those that have one — and ‘C-u /’
+     ‘by-deadline’ ‘any’ selects those that do not.
+
+     The range is stored as you typed it and worked out afresh each time
+     it is applied, not once when you enter it.  A bookmark of
+     "deadlines in the next seven days" therefore still shows the next
+     seven days when you return to it next month.  Combine the two to
+     answer a question about both dates at once:
+
+          /  by-scheduled  next-7d
+          /  by-deadline   overdue
 
      The mode line shows the conditions in effect and how many of your
      nodes are left:
@@ -1042,12 +1092,13 @@ Node: What each row shows32156
 Node: Finding what you want34030
 Ref: Sorting34214
 Ref: Searching34404
-Node: Keys37422
-Node: Saving a view you use often38528
-Node: Choosing the columns39451
-Node: Adding your own search condition40390
-Node: Development41495
-Node: MELPA submission42349
+Ref: Searching by scheduled date or deadline37645
+Node: Keys40004
+Node: Saving a view you use often41110
+Node: Choosing the columns42033
+Node: Adding your own search condition42972
+Node: Development44077
+Node: MELPA submission44931
 
 End Tag Table
 
