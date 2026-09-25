@@ -617,13 +617,9 @@ No command in the buffer changes a node, a file, or the database.  You can
 leave it open while you edit your notes, and press ~g~ when you want it to
 catch up.
 
-Load it with:
-
-#+begin_src emacs-lisp
-(require 'org-roam-gt-list)
-#+end_src
-
-It works whether or not ~org-roam-gt-mode~ is enabled.
+Nothing needs to be loaded or enabled first: the command is part of
+~org-roam-gt~ and is available as soon as the package is, whether or not
+~org-roam-gt-mode~ is on.
 
 *** What each row shows
 

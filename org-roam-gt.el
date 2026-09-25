@@ -53,6 +53,13 @@
   "Improvements for org-roam: faster search, richer capture targets, speed commands."
   :group 'org-roam)
 
+;; Required after the group above, which its options are declared in.
+;; The node list is part of the package rather than an opt-in extra:
+;; `org-roam-gt-list-bookmark-jump' is stored as the handler of every
+;; bookmark saving a node-list view, and a bookmark whose handler is
+;; undefined fails to jump.
+(require 'org-roam-gt-list)
+
 ;;; Version
 
 (defconst org-roam-gt-version "0.4"
