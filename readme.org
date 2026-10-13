@@ -811,6 +811,20 @@ see the nodes that match *now* rather than the ones that matched when you
 saved it.  These are ordinary Emacs bookmarks; anything that works with
 ~bookmark.el~ can store and jump to them.
 
+To open a fixed view from your own command — a key binding, say — without
+a bookmark, call ~org-roam-gt-list-open-view~ with the columns, the
+filters and the sort column a bookmark would store:
+
+#+begin_src emacs-lisp
+(defun my-due-projects ()
+  (interactive)
+  (org-roam-gt-list-open-view
+   '(todo title scheduled)
+   '((:key by-todo :values ("PROJ" "AREA") :negate nil)
+     (:key by-scheduled :values ("due") :negate nil))
+   "Scheduled"))
+#+end_src
+
 To keep the columns, search, and sort order of the buffer between Emacs
 sessions as well:
 

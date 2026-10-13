@@ -755,6 +755,32 @@ the node renderable."
         (when (get-buffer org-roam-gt-list-buffer-name)
           (kill-buffer org-roam-gt-list-buffer-name))))))
 
+(describe "org-roam-gt-list-open-view"
+
+  (it "opens the list with the given view and accepts a bare sort name"
+    (let ((org-roam-gt-list--state nil)
+          (org-roam-gt-list--state-loaded t)
+          (nodes (list (org-roam-gt-test-list--node
+                        :id "n1" :title "Beta" :tags '("jp"))
+                       (org-roam-gt-test-list--node
+                        :id "n2" :title "Alpha" :tags '("jp"))
+                       (org-roam-gt-test-list--node
+                        :id "n3" :title "Gamma"))))
+      (unwind-protect
+          (cl-letf (((symbol-function 'org-roam-node-list)
+                     (lambda () nodes)))
+            (org-roam-gt-list-open-view
+             '(todo title)
+             (list (org-roam-gt-test-list--filter 'by-tag '("jp")))
+             "Title")
+            (with-current-buffer org-roam-gt-list-buffer-name
+              (expect org-roam-gt-list--columns :to-equal '(todo title))
+              (expect tabulated-list-sort-key :to-equal '("Title" . nil))
+              (expect (org-roam-gt-test-list--titles)
+                      :to-have-same-items-as '("Beta" "Alpha"))))
+        (when (get-buffer org-roam-gt-list-buffer-name)
+          (kill-buffer org-roam-gt-list-buffer-name))))))
+
 ;;; Visit
 
 (defun org-roam-gt-test-list--heading-position (buffer heading)

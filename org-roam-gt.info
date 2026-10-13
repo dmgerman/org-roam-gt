@@ -987,6 +987,18 @@ you see the nodes that match *now* rather than the ones that matched
 when you saved it.  These are ordinary Emacs bookmarks; anything that
 works with ‘bookmark.el’ can store and jump to them.
 
+   To open a fixed view from your own command — a key binding, say —
+without a bookmark, call ‘org-roam-gt-list-open-view’ with the columns,
+the filters and the sort column a bookmark would store:
+
+     (defun my-due-projects ()
+       (interactive)
+       (org-roam-gt-list-open-view
+        '(todo title scheduled)
+        '((:key by-todo :values ("PROJ" "AREA") :negate nil)
+          (:key by-scheduled :values ("due") :negate nil))
+        "Scheduled"))
+
    To keep the columns, search, and sort order of the buffer between
 Emacs sessions as well:
 
@@ -1104,10 +1116,10 @@ Ref: Searching34404
 Ref: Searching by scheduled date or deadline37645
 Node: Keys40004
 Node: Saving a view you use often41596
-Node: Choosing the columns42519
-Node: Adding your own search condition43458
-Node: Development44563
-Node: MELPA submission45417
+Node: Choosing the columns42987
+Node: Adding your own search condition43926
+Node: Development45031
+Node: MELPA submission45885
 
 End Tag Table
 
