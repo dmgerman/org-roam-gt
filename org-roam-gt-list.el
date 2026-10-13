@@ -1048,16 +1048,27 @@ the list buffer if it is not already open, applies the three, and
 redraws.  The node list itself is re-read from the database, so
 the restored view shows the nodes as they are now rather than as
 they were when the bookmark was stored."
-  (let ((columns  (bookmark-prop-get bookmark 'columns))
-        (filters  (bookmark-prop-get bookmark 'filters))
-        (sort-key (bookmark-prop-get bookmark 'sort-key)))
-    (org-roam-gt-list)
-    (with-current-buffer org-roam-gt-list-buffer-name
-      (setq org-roam-gt-list--columns columns)
-      (setq org-roam-gt-list--filters
-            (org-roam-gt-list--normalize-filters filters))
-      (setq tabulated-list-sort-key sort-key)
-      (org-roam-gt-list--redraw-preserving-point))))
+  (org-roam-gt-list-open-view (bookmark-prop-get bookmark 'columns)
+                              (bookmark-prop-get bookmark 'filters)
+                              (bookmark-prop-get bookmark 'sort-key)))
+
+;;;###autoload
+(defun org-roam-gt-list-open-view (columns filters sort-key)
+  "Open the node list showing COLUMNS, FILTERS and SORT-KEY.
+COLUMNS is a list of keys of `org-roam-gt-list-column-alist'.
+FILTERS is a list of filters in the shape a bookmark stores them.
+SORT-KEY is a (NAME . FLIP) pair as in `tabulated-list-sort-key',
+or a bare column NAME, which sorts ascending.  This is the view a
+bookmark restores, given directly, so a command can open a fixed
+view of the list without a bookmark."
+  (org-roam-gt-list)
+  (with-current-buffer org-roam-gt-list-buffer-name
+    (setq org-roam-gt-list--columns columns)
+    (setq org-roam-gt-list--filters
+          (org-roam-gt-list--normalize-filters filters))
+    (setq tabulated-list-sort-key
+          (if (stringp sort-key) (cons sort-key nil) sort-key))
+    (org-roam-gt-list--redraw-preserving-point)))
 
 ;;;; Filter
 
