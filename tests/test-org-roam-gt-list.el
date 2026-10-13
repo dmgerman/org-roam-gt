@@ -755,6 +755,115 @@ the node renderable."
         (when (get-buffer org-roam-gt-list-buffer-name)
           (kill-buffer org-roam-gt-list-buffer-name))))))
 
+;;; Visit
+
+(defun org-roam-gt-test-list--heading-position (buffer heading)
+  "Return the position of HEADING in BUFFER."
+  (with-current-buffer buffer
+    (save-excursion
+      (goto-char (point-min))
+      (re-search-forward (concat "^\\*+ " (regexp-quote heading) "$"))
+      (line-beginning-position))))
+
+(defun org-roam-gt-test-list--goto (buffer heading)
+  "Leave point in BUFFER on the body line just under HEADING."
+  (with-current-buffer buffer
+    (goto-char (org-roam-gt-test-list--heading-position buffer heading))
+    (forward-line 1)))
+
+(defun org-roam-gt-test-list--node-for (buffer heading id)
+  "Build a node for HEADING with ID, pointing into BUFFER's file."
+  (org-roam-gt-test-list--node
+   :id id :title heading :file (buffer-file-name buffer) :level 1
+   :point (org-roam-gt-test-list--heading-position buffer heading)))
+
+(defun org-roam-gt-test-list--forced-p ()
+  "Return the FORCE argument the first `org-roam-node-visit' spy call got."
+  (nth 2 (spy-calls-args-for 'org-roam-node-visit 0)))
+
+(describe "org-roam-gt-list visiting"
+
+  (let (file buffer)
+
+    (before-each
+      (setq file (make-temp-file
+                  "org-roam-gt-list-visit-" nil ".org"
+                  (concat ":PROPERTIES:\n:ID: file-node\n:END:\n"
+                          "#+title: Whole file\n\n"
+                          "* First\n:PROPERTIES:\n:ID: first\n:END:\n"
+                          "body one\n"
+                          "** Child\nchild body\n"
+                          "* Second\n:PROPERTIES:\n:ID: second\n:END:\n"
+                          "body two\n")))
+      (setq buffer (find-file-noselect file)))
+
+    (after-each
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer))
+      (delete-file file))
+
+    (it "counts the whole file as inside a file-level node"
+      (let ((node (org-roam-gt-test-list--node
+                   :id "file-node" :file file :level 0 :point 1)))
+        (org-roam-gt-test-list--goto buffer "Second")
+        (expect (with-current-buffer buffer
+                  (org-roam-gt-list--point-in-node-p node))
+                :to-be-truthy)))
+
+    (it "counts a child of a headline node as inside it"
+      (let ((node (org-roam-gt-test-list--node-for buffer "First" "first")))
+        (org-roam-gt-test-list--goto buffer "Child")
+        (expect (with-current-buffer buffer
+                  (org-roam-gt-list--point-in-node-p node))
+                :to-be-truthy)))
+
+    (it "counts another subtree as outside a headline node"
+      (let ((node (org-roam-gt-test-list--node-for buffer "First" "first")))
+        (org-roam-gt-test-list--goto buffer "Second")
+        (expect (with-current-buffer buffer
+                  (org-roam-gt-list--point-in-node-p node))
+                :to-be nil)))
+
+    (it "counts text before the first headline as outside a headline node"
+      (let ((node (org-roam-gt-test-list--node-for buffer "First" "first")))
+        (with-current-buffer buffer (goto-char (point-min)))
+        (expect (with-current-buffer buffer
+                  (org-roam-gt-list--point-in-node-p node))
+                :to-be nil)))
+
+    (it "leaves point alone when it is already inside the node"
+      (spy-on 'org-roam-node-visit)
+      (let ((node (org-roam-gt-test-list--node-for buffer "First" "first")))
+        (org-roam-gt-test-list--goto buffer "Child")
+        (org-roam-gt-list--visit node nil nil)
+        (expect (org-roam-gt-test-list--forced-p)
+                :to-be nil)))
+
+    (it "moves point to the node when it is elsewhere in the file"
+      (spy-on 'org-roam-node-visit)
+      (let ((node (org-roam-gt-test-list--node-for buffer "First" "first")))
+        (org-roam-gt-test-list--goto buffer "Second")
+        (org-roam-gt-list--visit node nil nil)
+        (expect (org-roam-gt-test-list--forced-p)
+                :to-be-truthy)))
+
+    (it "moves point to the node when the file is not visited at all"
+      (spy-on 'org-roam-node-visit)
+      (let ((node (org-roam-gt-test-list--node-for buffer "First" "first")))
+        (kill-buffer buffer)
+        (org-roam-gt-list--visit node nil nil)
+        (setq buffer (find-file-noselect file))
+        (expect (org-roam-gt-test-list--forced-p)
+                :to-be-truthy)))
+
+    (it "always moves point for the beginning-of-node command"
+      (spy-on 'org-roam-node-visit)
+      (let ((node (org-roam-gt-test-list--node-for buffer "First" "first")))
+        (org-roam-gt-test-list--goto buffer "Child")
+        (org-roam-gt-list--visit node nil t)
+        (expect (org-roam-gt-test-list--forced-p)
+                :to-be-truthy)))))
+
 ;;; Mode
 
 (describe "org-roam-gt-list-mode"

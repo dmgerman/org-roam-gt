@@ -941,6 +941,7 @@ File: org-roam-gt.info,  Node: Keys,  Next: Saving a view you use often,  Prev: 
 Key         Does
 ---------------------------------------------------------
 ‘RET’       open the node in this window
+‘M-RET’     open the node at its beginning
 ‘o’         open the node in another window
 ‘TAB’       show the node in another window, stay here
 ‘i’         show the node's raw database record
@@ -954,6 +955,14 @@ Key         Does
 ‘g’         re-read the database
 ‘C-x r m’   save this view as a bookmark
 ‘q’         bury the buffer
+
+   When the node's file is already open, ‘RET’ keeps point where you
+left it — but only if that place is inside the node you asked for; a
+file-level node covers the whole file, and a headline node covers its
+own subtree.  Point anywhere else in the file moves to the beginning of
+the node.  ‘M-RET’ moves it there in every case, which is what you want
+when you left point inside the node and want to read it from the top
+again.
 
    Sorting, searching, and changing columns all work from a copy of the
 node list taken when the buffer was opened, so they are immediate no
@@ -1094,11 +1103,11 @@ Ref: Sorting34214
 Ref: Searching34404
 Ref: Searching by scheduled date or deadline37645
 Node: Keys40004
-Node: Saving a view you use often41110
-Node: Choosing the columns42033
-Node: Adding your own search condition42972
-Node: Development44077
-Node: MELPA submission44931
+Node: Saving a view you use often41596
+Node: Choosing the columns42519
+Node: Adding your own search condition43458
+Node: Development44563
+Node: MELPA submission45417
 
 End Tag Table
 
