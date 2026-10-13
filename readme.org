@@ -770,6 +770,7 @@ clear them all and return the buffer to its defaults.
 | Key     | Does                                      |
 |---------+-------------------------------------------|
 | ~RET~     | open the node in this window              |
+| ~M-RET~   | open the node at its beginning            |
 | ~o~       | open the node in another window           |
 | ~TAB~     | show the node in another window, stay here |
 | ~i~       | show the node's raw database record       |
@@ -783,6 +784,13 @@ clear them all and return the buffer to its defaults.
 | ~g~       | re-read the database                      |
 | ~C-x r m~ | save this view as a bookmark              |
 | ~q~       | bury the buffer                           |
+
+When the node's file is already open, ~RET~ keeps point where you left it —
+but only if that place is inside the node you asked for; a file-level node
+covers the whole file, and a headline node covers its own subtree.  Point
+anywhere else in the file moves to the beginning of the node.  ~M-RET~ moves
+it there in every case, which is what you want when you left point inside
+the node and want to read it from the top again.
 
 Sorting, searching, and changing columns all work from a copy of the node
 list taken when the buffer was opened, so they are immediate no matter how

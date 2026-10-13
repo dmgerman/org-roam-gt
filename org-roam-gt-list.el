@@ -633,6 +633,7 @@ A no-op in buffers not derived from `org-roam-gt-list-mode'."
   :doc "Keymap for `org-roam-gt-list-mode'."
   :parent tabulated-list-mode-map
   "RET" #'org-roam-gt-list-visit
+  "M-RET" #'org-roam-gt-list-visit-beginning
   "o"   #'org-roam-gt-list-visit-other-window
   "C-o" #'org-roam-gt-list-visit-other-window
   "TAB" #'org-roam-gt-list-preview
@@ -669,6 +670,7 @@ lives in, so every node in one file shows the same date.
 Row-scoped commands (act on the node at point):
   \\[org-roam-gt-list-visit] visit (same window)
   \\[org-roam-gt-list-visit-other-window] visit (other window)
+  \\[org-roam-gt-list-visit-beginning] visit, always at the node's beginning
   \\[org-roam-gt-list-preview] preview, keeping point in the list
   \\[org-roam-gt-list-describe-node] describe (pretty-print the record)
 
@@ -821,15 +823,65 @@ mode defaults."
 
 ;;;; Visit
 
+(defun org-roam-gt-list--point-in-node-p (node)
+  "Return non-nil when point in the current buffer is inside NODE.
+A file-level node spans the whole file.  A headline node spans its
+own subtree, so point in one of its children counts as inside it.
+Assumes the current buffer visits NODE's file."
+  (if (zerop (or (org-roam-node-level node) 0))
+      t
+    (let ((pos (point)))
+      (org-with-wide-buffer
+       (goto-char (min (max (point-min) (org-roam-node-point node))
+                       (point-max)))
+       (if (org-at-heading-p)
+           (and (>= pos (line-beginning-position))
+                (< pos (save-excursion
+                         (org-end-of-subtree t t)
+                         (point))))
+         ;; The recorded position no longer names a heading: the file
+         ;; changed since the database was built, and there is no
+         ;; subtree to compare against.
+         t)))))
+
+(defun org-roam-gt-list--visit (node other-window force)
+  "Visit NODE, in another window when OTHER-WINDOW is non-nil.
+Move point to the beginning of NODE when FORCE is non-nil.
+Otherwise move it there only when the buffer visiting NODE's file
+has point outside NODE — `org-roam-node-visit' alone leaves point
+where it was, which can be in an unrelated part of the file."
+  (org-roam-node-visit
+   node other-window
+   (or force
+       (let ((buffer (find-buffer-visiting (org-roam-node-file node))))
+         (not (and buffer
+                   (with-current-buffer buffer
+                     (org-roam-gt-list--point-in-node-p node))))))))
+
 (defun org-roam-gt-list-visit ()
-  "Visit the node on the current line in the selected window."
+  "Visit the node on the current line in the selected window.
+Point is left where it was in an already-visited file, unless it
+is outside the node, in which case it moves to the node's
+beginning.  See `org-roam-gt-list-visit-beginning' to always move
+it."
   (interactive nil org-roam-gt-list-mode)
-  (org-roam-node-visit (org-roam-gt-list--require-node)))
+  (org-roam-gt-list--visit (org-roam-gt-list--require-node) nil nil))
 
 (defun org-roam-gt-list-visit-other-window ()
-  "Visit the node on the current line in another window."
+  "Visit the node on the current line in another window.
+Point is placed as by `org-roam-gt-list-visit'."
   (interactive nil org-roam-gt-list-mode)
-  (org-roam-node-visit (org-roam-gt-list--require-node) t))
+  (org-roam-gt-list--visit (org-roam-gt-list--require-node) t nil))
+
+(defun org-roam-gt-list-visit-beginning (&optional other-window)
+  "Visit the node on the current line at its beginning.
+Unlike `org-roam-gt-list-visit', point always moves to the start
+of the node, even when its file is already visited with point
+inside the node.  With a prefix argument OTHER-WINDOW, display
+the file in another window."
+  (interactive "P" org-roam-gt-list-mode)
+  (org-roam-gt-list--visit (org-roam-gt-list--require-node)
+                           other-window t))
 
 (defun org-roam-gt-list-preview ()
   "Display the node on the current line in another window.
@@ -837,7 +889,7 @@ Point stays in the list buffer."
   (interactive nil org-roam-gt-list-mode)
   (let ((node (org-roam-gt-list--require-node)))
     (save-selected-window
-      (org-roam-node-visit node t))))
+      (org-roam-gt-list--visit node t nil))))
 
 (defun org-roam-gt-list-describe-node ()
   "Pretty-print the record of the node on the current line.
