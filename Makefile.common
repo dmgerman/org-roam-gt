@@ -12,12 +12,17 @@
 #
 #   PACKAGE          package name; basename of the Info manual
 #   EL_FILES         sources in byte-compile order (required)
-#   MAIN_FILE        file carrying the package headers, for
-#                    `package-lint-main-file' (default: $(PACKAGE).el)
-#   DEPS             packages installed into the project-local ELPA
+#   DEPS             packages installed into the test ELPA (ELPA_DIR);
+#                    used only by `test'.  Optional (soft) dependencies
+#                    belong here, never in the MELPA ELPA below
 #   UPGRADE_DEPS     subset of DEPS to install with
 #                    `package-install-upgrade-built-in' set, for
 #                    packages that ship bundled with Emacs (e.g. org)
+#   MELPA_RECIPE     the recipe submitted to MELPA
+#                    (default: melpa/$(PACKAGE))
+#   PRIVATE_OK       extended regexp of symbol prefixes whose private
+#                    (`--') symbols may be forward-declared
+#                    (default: $(PACKAGE)-)
 #   TEST_DIR         directory holding the ERT suite (default: test)
 #   TEST_FILES       files to load, in load order
 #                    (default: every .el under TEST_DIR)
@@ -43,35 +48,77 @@ CI_EMACS_LIST ?= $(EMACS_30) $(EMACS_31)
 
 TEST_DIR  ?= test
 TEST_FILES ?= $(wildcard $(TEST_DIR)/*.el)
-
-# The file carrying Package-Requires and the other package headers.
-# Without it package-lint reads each file as a package of its own and
-# skips every check that spans a multi-file package, among them
-# "Package-Requires outside the main file have no effect".  Empty when
-# the package sets no PACKAGE, in which case lint runs as before.
-MAIN_FILE ?= $(if $(strip $(PACKAGE)),$(PACKAGE).el)
 INFO_FILE ?= $(if $(strip $(INFO_SRC)),$(PACKAGE).info)
 INFO_DIR  ?= dir
 
-# Project-local ELPA so the user's personal package directory is not
-# touched and CI starts from a clean slate every run.
+# Two project-local ELPAs, so the user's personal package directory is
+# not touched and CI starts from a clean slate every run:
+#
+#   MELPA_ELPA_DIR  what MELPA's checker installs: the Package-Requires
+#                   of every EL_FILES file, plus package-lint and
+#                   pkg-info.  compile, lint, checkdoc and check-declare
+#                   run here, so an optional dependency that happens to
+#                   be installed cannot hide a warning MELPA reports.
+#   ELPA_DIR        MELPA_ELPA_DIR's contents plus DEPS; `test' runs
+#                   here.
 ELPA_DIR ?= .elpa
+MELPA_ELPA_DIR ?= .elpa-melpa
+MELPA_TOOL_DEPS = package-lint pkg-info
 
-# Common Emacs invocation header: project-local package-user-dir, MELPA
-# and NonGNU ELPA in package-archives, package-initialize so installed
-# packages are on load-path.
-EMACS_BATCH = $(EMACS) -Q --batch \
-  --eval "(setq package-user-dir (expand-file-name \"$(ELPA_DIR)\"))" \
+MELPA_RECIPE ?= melpa/$(PACKAGE)
+PRIVATE_OK ?= $(PACKAGE)-
+
+# melpazoid runs inside a container built on Emacs 31.1; MELPAZOID_DIR
+# holds the staged package, the isolated HOME, and the downloaded tools.
+MELPAZOID_EMACS ?= $(EMACS_31)
+MELPAZOID_DIR ?= .melpazoid
+MELPAZOID_URL ?= https://raw.githubusercontent.com/riscy/melpazoid/master/melpazoid/melpazoid.el
+PACKAGE_BUILD_URL ?= https://raw.githubusercontent.com/melpa/melpa/master/package-build
+PACKAGE_BUILD_FILES = package-build.el package-build-badges.el \
+                      package-recipe.el package-recipe-mode.el
+
+# Emacs invocation header for the ELPA directory given as $(1):
+# project-local package-user-dir, MELPA and NonGNU ELPA in
+# package-archives, package-initialize so installed packages are on
+# load-path.
+emacs-batch-in = $(EMACS) -Q --batch \
+  --eval "(setq package-user-dir (expand-file-name \"$(1)\"))" \
   --eval "(require 'package)" \
   --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" \
   --eval "(add-to-list 'package-archives '(\"nongnu\" . \"https://elpa.nongnu.org/nongnu/\"))" \
   --eval "(package-initialize)" \
   $(EXTRA_LOAD_PATH)
 
+EMACS_BATCH = $(call emacs-batch-in,$(ELPA_DIR))
+EMACS_MELPA_BATCH = $(call emacs-batch-in,$(MELPA_ELPA_DIR))
+
+# Elisp that installs every package named in the Package-Requires header
+# of the files left on the command line (except `emacs'), plus
+# MELPA_TOOL_DEPS.  As in melpazoid, built-in packages are upgraded to
+# the archive version.  The archive index is fetched only when a package
+# is missing, so the common case needs no network.
+INSTALL_REQUIRES = \
+  --eval "(require 'lisp-mnt)" \
+  --eval "(setq package-install-upgrade-built-in t)" \
+  --eval "(let ((reqs (mapcar (function list) '($(MELPA_TOOL_DEPS))))) \
+            (dolist (f command-line-args-left) \
+              (with-temp-buffer \
+                (insert-file-contents f) \
+                (let ((h (lm-header-multiline \"package-requires\"))) \
+                  (when h \
+                    (dolist (r (package-read-from-string (mapconcat (function identity) h \" \"))) \
+                      (unless (eq (car r) 'emacs) (push r reqs))))))) \
+            (setq command-line-args-left nil) \
+            (dolist (r (delete-dups reqs)) \
+              (unless (package-installed-p (car r) (and (cadr r) (version-to-list (cadr r)))) \
+                (unless package-archive-contents (package-refresh-contents)) \
+                (message \"Installing %s\" (car r)) \
+                (package-install (car r)))))"
+
 .DEFAULT_GOAL := default
 
 .PHONY: default lint checkdoc check-declare compile test clean check \
-        check-ci info help \
+        check-ci info help melpazoid check-forward-declares \
         check-30 check-31 check-all \
         lint-30 lint-31 lint-all \
         checkdoc-30 checkdoc-31 checkdoc-all \
@@ -83,24 +130,33 @@ EMACS_BATCH = $(EMACS) -Q --batch \
 # `make check' before committing.
 default: compile $(if $(strip $(INFO_SRC)),info) $(DEFAULT_EXTRA)
 
-$(ELPA_DIR):
+$(ELPA_DIR) $(MELPA_ELPA_DIR):
 	@mkdir -p $@
 
 # UPGRADE_DEPS are installed first, with `package-install-upgrade-built-in'
 # set, so a version newer than the one bundled with Emacs is fetched.  The
-# remaining DEPS are installed only when absent.
-$(ELPA_DIR)/.installed: | $(ELPA_DIR)
+# remaining DEPS are installed only when absent.  The Package-Requires of
+# EL_FILES are installed last, so the test ELPA is a superset of the
+# MELPA ELPA.
+$(ELPA_DIR)/.installed: $(EL_FILES) | $(ELPA_DIR)
 	$(EMACS_BATCH) \
 	  --eval "(unless package-archive-contents (package-refresh-contents))" \
 	  $(if $(strip $(UPGRADE_DEPS)),--eval "(setq package-install-upgrade-built-in t)") \
 	  $(foreach pkg,$(UPGRADE_DEPS),--eval "(package-install '$(pkg))") \
-	  $(foreach pkg,$(filter-out $(UPGRADE_DEPS),$(DEPS)),--eval "(unless (package-installed-p '$(pkg)) (package-install '$(pkg)))")
+	  $(foreach pkg,$(filter-out $(UPGRADE_DEPS),$(DEPS)),--eval "(unless (package-installed-p '$(pkg)) (package-install '$(pkg)))") \
+	  $(INSTALL_REQUIRES) $(EL_FILES)
 	@touch $@
 
-lint: $(ELPA_DIR)/.installed
-	$(EMACS_BATCH) \
+# Re-run whenever a source changes, because a changed Package-Requires
+# header must reach this ELPA before the next compile.  When nothing is
+# missing the rule does no network access.
+$(MELPA_ELPA_DIR)/.installed: $(EL_FILES) | $(MELPA_ELPA_DIR)
+	@$(EMACS_MELPA_BATCH) $(INSTALL_REQUIRES) $(EL_FILES)
+	@touch $@
+
+lint: $(MELPA_ELPA_DIR)/.installed
+	$(EMACS_MELPA_BATCH) \
 	  --eval "(require 'package-lint)" \
-	  $(if $(strip $(MAIN_FILE)),--eval "(setq package-lint-main-file \"$(MAIN_FILE)\")") \
 	  -f package-lint-batch-and-exit $(EL_FILES)
 
 # checkdoc runs in batch via `checkdoc-file', which writes warnings to
@@ -110,8 +166,8 @@ lint: $(ELPA_DIR)/.installed
 # regressions.  Stderr already carries the human-readable diagnostic;
 # no need to re-print it.  `-L .' lets each file `require' its siblings
 # during checkdoc's own load.
-checkdoc: $(ELPA_DIR)/.installed
-	@$(EMACS_BATCH) \
+checkdoc: $(MELPA_ELPA_DIR)/.installed
+	@$(EMACS_MELPA_BATCH) \
 	  -L . \
 	  --eval "(require 'checkdoc)" \
 	  --eval "(let ((had-issue nil)) \
@@ -129,8 +185,8 @@ checkdoc: $(ELPA_DIR)/.installed
 # on success) and writes a human-readable report to the `*Check
 # Declarations Warnings*' buffer.  We aggregate over all files and exit
 # 1 on any finding so CI fails on regressions.
-check-declare: $(ELPA_DIR)/.installed
-	@$(EMACS_BATCH) \
+check-declare: $(MELPA_ELPA_DIR)/.installed
+	@$(EMACS_MELPA_BATCH) \
 	  -L . \
 	  --eval "(require 'check-declare)" \
 	  --eval "(let ((had-issue nil)) \
@@ -148,11 +204,11 @@ check-declare: $(ELPA_DIR)/.installed
 # byte-compile warning as a hard error so CI catches them before commit.
 # `-L .' puts the source tree on the load-path so files compile in order
 # even though they require siblings whose .elc does not exist yet.
-compile: $(ELPA_DIR)/.installed
+compile: $(MELPA_ELPA_DIR)/.installed
 	@set -e; \
 	for f in $(EL_FILES); do \
 	  echo "==> compiling $$f"; \
-	  $(EMACS_BATCH) \
+	  $(EMACS_MELPA_BATCH) \
 	    --eval "(setq byte-compile-error-on-warn t)" \
 	    -L . \
 	    -f batch-byte-compile $$f; \
@@ -203,7 +259,111 @@ $(INFO_DIR): $(INFO_FILE)
 	install-info --info-file=$(INFO_FILE) --dir-file=$(INFO_DIR)
 endif
 
-check: compile lint checkdoc check-declare test \
+# Local copy of the checks MELPA reviewers run on a submitted recipe.
+# The container that melpazoid.py builds is reproduced without Docker:
+#
+#   1. MELPA's own package-build expands MELPA_RECIPE's :files against
+#      this checkout, and the matched files are copied flat (.el files)
+#      into $(MELPAZOID_DIR)/pkg, as melpazoid.py does.
+#   2. An isolated HOME ($(MELPAZOID_DIR)/home) receives the same .emacs
+#      and the same packages as the container: package-lint, pkg-info,
+#      and the Package-Requires of the staged files.  The HOME persists
+#      between runs; delete $(MELPAZOID_DIR) to reinstall from scratch.
+#   3. The current upstream melpazoid.el runs in the staging directory
+#      under MELPAZOID_EMACS (31.1, the container's version), with the
+#      container's command line and environment.
+#
+# melpazoid.el prints a section only when it has a finding, so any
+# output on stdout fails the target.  Error and warning lines on stderr
+# fail it as well, as they do in melpazoid.py.  Requires network access:
+# melpazoid.el and package-build are downloaded on every run.
+#
+# `check' always runs this target.  A package without MELPA_RECIPE is
+# not submitted to MELPA and has nothing to stage; the target says so
+# and succeeds.
+melpazoid:
+	$(if $(wildcard $(MELPA_RECIPE)),$(call assert-emacs,MELPAZOID_EMACS))
+	@if [ ! -f "$(MELPA_RECIPE)" ]; then \
+	  echo "melpazoid: skipped: no MELPA recipe at $(MELPA_RECIPE)"; \
+	  exit 0; \
+	fi; \
+	set -e; \
+	mz="$(abspath $(MELPAZOID_DIR))"; \
+	rm -rf "$$mz/pkg" "$$mz/tools" "$$mz/work"; \
+	mkdir -p "$$mz/pkg" "$$mz/tools" "$$mz/work" "$$mz/home/.emacs.d"; \
+	curl -fsSL -o "$$mz/tools/melpazoid.el" "$(MELPAZOID_URL)"; \
+	for f in $(PACKAGE_BUILD_FILES); do \
+	  curl -fsSL -o "$$mz/tools/$$f" "$(PACKAGE_BUILD_URL)/$$f"; \
+	done; \
+	ln -s "$(CURDIR)" "$$mz/work/$(PACKAGE)"; \
+	files=$$($(MELPAZOID_EMACS) -Q --batch -L "$$mz/tools" \
+	  --eval "(require 'package-build)" \
+	  --eval "(setq package-build-recipes-dir \"$(abspath $(dir $(MELPA_RECIPE)))\")" \
+	  --eval "(setq package-build-working-dir \"$$mz/work\")" \
+	  --eval "(dolist (f (package-build-expand-files-spec (package-recipe-lookup \"$(PACKAGE)\") t)) \
+	            (princ (format \"%s\n\" (car f))))"); \
+	echo "==> files selected by $(MELPA_RECIPE):" $$files; \
+	for f in $$files; do \
+	  case "$$f" in \
+	    *.el) cp "$$f" "$$mz/pkg/$$(basename "$$f")" ;; \
+	    *) mkdir -p "$$mz/pkg/$$(dirname "$$f")"; cp -R "$$f" "$$mz/pkg/$$f" ;; \
+	  esac; \
+	done; \
+	main=""; \
+	if [ $$(ls "$$mz/pkg" | grep -c '\.el$$') -gt 1 ]; then \
+	  for m in $(PACKAGE)-pkg.el $(PACKAGE)-pkg.el.in $(PACKAGE).el; do \
+	    if [ -z "$$main" ] && [ -f "$$mz/pkg/$$m" ]; then main=$$m; fi; \
+	  done; \
+	fi; \
+	printf '%s\n' \
+	  ';;; .emacs --- melpazoid emacs config -*- lexical-binding: t -*-' \
+	  '(add-to-list (quote load-path) (getenv "ELISP_PATH"))' \
+	  '(package-initialize)' > "$$mz/home/.emacs"; \
+	HOME="$$mz/home" $(MELPAZOID_EMACS) --batch \
+	  --eval "(setq load-file-name nil)" \
+	  --eval "(require 'package)" \
+	  --eval "(package-initialize)" \
+	  --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\"))" \
+	  $(INSTALL_REQUIRES) "$$mz"/pkg/*.el >"$$mz/install.log" 2>&1 \
+	  || { cat "$$mz/install.log"; echo "melpazoid: dependency install failed"; exit 1; }; \
+	cp "$$mz/tools/melpazoid.el" "$$mz/pkg/"; \
+	echo "==> melpazoid under $$($(MELPAZOID_EMACS) --version | head -1)$${main:+, PACKAGE_MAIN=$$main}"; \
+	status=0; \
+	report=$$(cd "$$mz/pkg" && \
+	  HOME="$$mz/home" ELISP_PATH="$$mz/pkg" PACKAGE_MAIN="$$main" \
+	  $(MELPAZOID_EMACS) --no-site-file --batch --load=melpazoid.el \
+	  2>"$$mz/stderr") || status=$$?; \
+	if [ -n "$$report" ]; then printf '%s\n' "$$report"; fi; \
+	if [ -s "$$mz/stderr" ]; then \
+	  echo "--- stderr while compiling/loading:"; cat "$$mz/stderr"; \
+	fi; \
+	if [ $$status -ne 0 ]; then echo "melpazoid: Emacs exited with status $$status"; exit 1; fi; \
+	if [ -n "$$report" ] || grep -qE ':Error: |: error: |:Warning: |: warning: ' "$$mz/stderr"; then \
+	  echo "melpazoid: findings reported (see above)"; exit 1; \
+	fi; \
+	echo "melpazoid: no findings"
+
+# MELPA reviewers also flag forward declarations of another package's
+# private symbols: `declare-function' of a `--' function, and a
+# value-less `(defvar foo--bar)', because the compiler then cannot
+# detect that the other package renamed or removed the symbol.  Symbols
+# matching PRIVATE_OK (by default this package's own prefix) are
+# allowed.
+check-forward-declares:
+	@found=$$(grep -nE \
+	    -e '^[^;]*\(declare-function[[:space:]]+[^[:space:]()]+--' \
+	    -e '^[^;]*\(defvar[[:space:]]+[^[:space:]()]+--[^[:space:]()]*[[:space:]]*\)' \
+	    $(EL_FILES) \
+	  | grep -vE '\((declare-function|defvar)[[:space:]]+($(PRIVATE_OK))' || true); \
+	if [ -n "$$found" ]; then \
+	  echo "check-forward-declares: forward declaration of another package's private symbol:"; \
+	  printf '%s\n' "$$found"; \
+	  exit 1; \
+	fi; \
+	echo "check-forward-declares: none"
+
+check: compile lint checkdoc check-declare check-forward-declares test \
+       melpazoid \
        $(if $(strip $(INFO_SRC)),info) $(CHECK_EXTRA)
 
 # CI-mirror check.  EMACS_30 / EMACS_31 match the GitHub Actions matrix
@@ -272,6 +432,9 @@ help:
 	@echo "  make check-declare  verify declare-function file arguments"
 	@echo "  make compile        byte-compile, warnings fatal"
 	@echo "  make test           run the test suite under $(TEST_DIR)/"
+	@echo "  make check-forward-declares"
+	@echo "                      reject forward declarations of other packages' private symbols"
+	@echo "  make melpazoid      run MELPA's melpazoid checks on the files $(MELPA_RECIPE) selects"
 ifneq ($(strip $(INFO_SRC)),)
 	@echo "  make info           rebuild $(INFO_FILE) and $(INFO_DIR) from $(INFO_SRC)"
 endif

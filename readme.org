@@ -646,6 +646,41 @@ file shows the same date; and it is what the list is sorted by when you
 open it, newest first, which is usually the fastest way back to whatever
 you were working on yesterday.
 
+The ~priority~ letter is colored by level, with a faint background: A in
+red, B in amber, C in blue.  The ~title~ takes the same color as its
+node's priority, so an A item stands out even with the ~priority~ column
+hidden.
+
+Each ~todo~ keyword is shown as a small badge: colored text on a faint tint
+of the same color.  There are eight badges, ~org-roam-gt-list-todo-1~ to
+~-8~ (red, blue, green, purple, orange, teal, slate, gold).  Eight colors
+is about as many as the eye tells apart, so if you use more keywords than
+that, name the ones that matter and let the rest be quiet:
+
+#+begin_src emacs-lisp
+(setq org-roam-gt-list-todo-keyword-faces
+      '(("TODO"    . org-roam-gt-list-todo-1)
+        ("NEXT"    . org-roam-gt-list-todo-2)
+        ("DONE"    . org-roam-gt-list-todo-3)))
+#+end_src
+
+Keywords missing from that list are shown in gray.  When the list is empty
+(the default), every keyword gets a badge, handed out in the order the
+keywords appear in ~org-todo-keywords~ and repeating after eight; the order
+is the list ~org-roam-gt-list-todo-faces~.
+
+The ~scheduled~ date is colored by how late it is: teal when it is today,
+and a rose that deepens as it falls behind — 1 to 7 days, 8 to 30 days, and
+more than 30 days, the last also in bold.  Future dates are not colored.
+The steps are set in ~org-roam-gt-list-scheduled-faces~, as pairs of the
+minimum number of days late and a face.
+
+All of these colors have light- and dark-theme variants; change them with
+~M-x customize-group RET org-roam-gt~ (faces ~org-roam-gt-list-priority-a~,
+~-b~, ~-c~ and ~org-roam-gt-list-scheduled-today~, ~-late~, ~-overdue~,
+~-stale~), or map other priorities to faces in
+~org-roam-gt-list-priority-faces~.
+
 A value too long for its column is cut short and ends with ~…~, so you can
 always tell that you are seeing part of it.  The exception is the
 right-most column, which has the rest of the window available and is shown

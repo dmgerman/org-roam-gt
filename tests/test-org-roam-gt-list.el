@@ -107,6 +107,111 @@ the node renderable."
     (expect (org-roam-gt-list--priority (org-roam-gt-test-list--node))
             :to-equal ""))
 
+  (it "gives each priority level its own face"
+    (expect (org-roam-gt-list--priority-face
+             (org-roam-gt-test-list--node :priority ?A))
+            :to-be 'org-roam-gt-list-priority-a)
+    (expect (org-roam-gt-list--priority-face
+             (org-roam-gt-test-list--node :priority ?C))
+            :to-be 'org-roam-gt-list-priority-c))
+
+  (it "falls back to `org-priority' for a priority without a face"
+    (expect (org-roam-gt-list--priority-face
+             (org-roam-gt-test-list--node :priority ?D))
+            :to-be 'org-priority)
+    (expect (org-roam-gt-list--priority-face (org-roam-gt-test-list--node))
+            :to-be 'org-priority))
+
+  (it "reads the keywords of `org-todo-keywords' without keys or separator"
+    (let ((org-todo-keywords '((sequence "TODO(t!)" "NEXT" "|" "DONE(d)")
+                               (type "BUG" "|" "FIXED"))))
+      (expect (org-roam-gt-list--todo-keywords)
+              :to-equal '("TODO" "NEXT" "DONE" "BUG" "FIXED"))))
+
+  (it "gives TODO keywords palette faces in turn, wrapping around"
+    (let ((org-todo-keywords '((sequence "TODO" "NEXT" "|" "DONE")))
+          (org-roam-gt-list-todo-faces '(bold italic)))
+      (expect (org-roam-gt-list--todo-face
+               (org-roam-gt-test-list--node :todo "TODO"))
+              :to-be 'bold)
+      (expect (org-roam-gt-list--todo-face
+               (org-roam-gt-test-list--node :todo "NEXT"))
+              :to-be 'italic)
+      (expect (org-roam-gt-list--todo-face
+               (org-roam-gt-test-list--node :todo "DONE"))
+              :to-be 'bold)))
+
+  (it "gives a keyword missing from `org-todo-keywords' a palette face"
+    (let ((org-todo-keywords '((sequence "TODO" "|" "DONE")))
+          (org-roam-gt-list-todo-faces '(bold italic underline)))
+      (expect (memq (org-roam-gt-list--todo-face
+                     (org-roam-gt-test-list--node :todo "LOCAL"))
+                    org-roam-gt-list-todo-faces)
+              :to-be-truthy)))
+
+  (it "colors only the keywords named in `org-roam-gt-list-todo-keyword-faces'"
+    (let ((org-roam-gt-list-todo-keyword-faces '(("NEXT" . bold))))
+      (expect (org-roam-gt-list--todo-face
+               (org-roam-gt-test-list--node :todo "NEXT"))
+              :to-be 'bold)
+      (expect (org-roam-gt-list--todo-face
+               (org-roam-gt-test-list--node :todo "TODO"))
+              :to-be 'org-roam-gt-list-todo-other)))
+
+  (it "falls back to `org-todo' when the palette is empty"
+    (let ((org-roam-gt-list-todo-faces nil))
+      (expect (org-roam-gt-list--todo-face
+               (org-roam-gt-test-list--node :todo "TODO"))
+              :to-be 'org-todo)))
+
+  (it "picks the scheduled face by how many days ago the date is"
+    (expect (org-roam-gt-list--age-face -3) :to-be 'org-date)
+    (expect (org-roam-gt-list--age-face 0)
+            :to-be 'org-roam-gt-list-scheduled-today)
+    (expect (org-roam-gt-list--age-face 1)
+            :to-be 'org-roam-gt-list-scheduled-late)
+    (expect (org-roam-gt-list--age-face 7)
+            :to-be 'org-roam-gt-list-scheduled-late)
+    (expect (org-roam-gt-list--age-face 8)
+            :to-be 'org-roam-gt-list-scheduled-overdue)
+    (expect (org-roam-gt-list--age-face 400)
+            :to-be 'org-roam-gt-list-scheduled-stale))
+
+  (it "does not depend on the order of `org-roam-gt-list-scheduled-faces'"
+    (let ((org-roam-gt-list-scheduled-faces '((5 . bold) (0 . italic))))
+      (expect (org-roam-gt-list--age-face 2) :to-be 'italic)
+      (expect (org-roam-gt-list--age-face 9) :to-be 'bold)))
+
+  (it "measures a scheduled date's age against today"
+    (spy-on 'org-roam-gt-list--today :and-return-value "2026-03-01")
+    (expect (org-roam-gt-list--scheduled-face
+             (org-roam-gt-test-list--node :scheduled "2026-03-01T00:00:00"))
+            :to-be 'org-roam-gt-list-scheduled-today)
+    ;; Across a month boundary, in a non-leap year: 2026-02-27 is 2 days back.
+    (expect (org-roam-gt-list--scheduled-face
+             (org-roam-gt-test-list--node :scheduled "2026-02-27T00:00:00"))
+            :to-be 'org-roam-gt-list-scheduled-late)
+    (expect (org-roam-gt-list--scheduled-face
+             (org-roam-gt-test-list--node :scheduled "2026-03-02T00:00:00"))
+            :to-be 'org-date)
+    (expect (org-roam-gt-list--scheduled-face (org-roam-gt-test-list--node))
+            :to-be 'org-date))
+
+  (it "colors the title with the node's priority face"
+    (expect (org-roam-gt-list--title-face
+             (org-roam-gt-test-list--node :priority ?A))
+            :to-be 'org-roam-gt-list-priority-a)
+    (expect (org-roam-gt-list--title-face (org-roam-gt-test-list--node))
+            :to-be nil))
+
+  (it "applies the priority face to the rendered cell"
+    (org-roam-gt-test-list--with-nodes nil
+      (let ((cell (org-roam-gt-list--cell
+                   (org-roam-gt-test-list--node :priority ?B) 'priority)))
+        (expect cell :to-equal "B")
+        (expect (get-text-property 0 'face cell)
+                :to-be 'org-roam-gt-list-priority-b))))
+
   (it "shows only the date part of a scheduled or deadline timestamp"
     (expect (org-roam-gt-list--scheduled
              (org-roam-gt-test-list--node :scheduled "2026-05-06T00:00:00"))

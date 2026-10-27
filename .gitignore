@@ -4,3 +4,6 @@ ai/reddit.md
 .elpa/
 .claude
 ai/*.org
+.elpa-melpa/
+.melpazoid/
+default.profraw

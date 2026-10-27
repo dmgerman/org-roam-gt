@@ -119,6 +119,237 @@ be sorted, the first sortable displayed column is used instead."
   :type '(cons string boolean)
   :group 'org-roam-gt)
 
+;;;; Priority faces
+;;
+;; Priority is ordinal, so the three levels share a scheme that fades
+;; from a warm, saturated A to a cool, quiet C.  The tint is kept to a
+;; single cell — the priority letter — so it marks the row without
+;; competing with the faces of the other columns.
+
+(defface org-roam-gt-list-priority-a
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#a3161a" :background "#fde2e0" :weight bold)
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#ffb4ab" :background "#5a1e1e" :weight bold)
+    (t :inherit org-priority :inverse-video t))
+  "Face of the priority cell for an [#A] node."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-priority-b
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#7a4f00" :background "#fff0c2")
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#ffd479" :background "#4a3a10")
+    (t :inherit org-priority))
+  "Face of the priority cell for a [#B] node."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-priority-c
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#2a5c85" :background "#e3eef8")
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#a8cdee" :background "#1d3247")
+    (t :inherit org-priority))
+  "Face of the priority cell for a [#C] node."
+  :group 'org-roam-gt)
+
+(defcustom org-roam-gt-list-priority-faces
+  '((?A . org-roam-gt-list-priority-a)
+    (?B . org-roam-gt-list-priority-b)
+    (?C . org-roam-gt-list-priority-c))
+  "Faces of the Priority column, as an alist of (PRIORITY . FACE).
+PRIORITY is the character of a priority cookie, such as ?A for
+[#A].  A priority absent from this alist is shown in the
+`org-priority' face."
+  :type '(alist :key-type character :value-type face)
+  :group 'org-roam-gt)
+
+;;;; TODO keyword faces
+;;
+;; A palette of eight badges, each a dark foreground on a faint tint
+;; of the same hue, with light- and dark-theme variants.  The tint is
+;; what makes the hues tell apart: a few letters of thin text carry
+;; too little color to separate red from magenta, a filled cell does.
+;; The text and the tint say the same thing; pairing unrelated ones
+;; would make the eye decode two signals at once.
+;;
+;; Eight is about as many colors as stay distinguishable, and a list
+;; of TODO keywords is often longer.  So the keywords that matter are
+;; named in `org-roam-gt-list-todo-keyword-faces' and every other one
+;; is shown quietly, rather than cycling the palette until colors
+;; repeat.  Cycling remains for a user who names none.
+
+(defface org-roam-gt-list-todo-1
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#c62828" :background "#fde7e7" :weight bold)
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#ff8a80" :background "#3d1c1c" :weight bold)
+    (t :inherit org-todo))
+  "First color of the TODO keyword palette: red."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-todo-2
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#1565c0" :background "#e3eefc" :weight bold)
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#82b1ff" :background "#1a2a44" :weight bold)
+    (t :inherit org-todo))
+  "Second color of the TODO keyword palette: blue."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-todo-3
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#2e7d32" :background "#e5f4e6" :weight bold)
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#81c784" :background "#1c3320" :weight bold)
+    (t :inherit org-todo))
+  "Third color of the TODO keyword palette: green."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-todo-4
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#6a1b9a" :background "#f1e6f8" :weight bold)
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#ce93d8" :background "#33203d" :weight bold)
+    (t :inherit org-todo))
+  "Fourth color of the TODO keyword palette: purple."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-todo-5
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#b34700" :background "#fff0e0" :weight bold)
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#ffb74d" :background "#3d2a12" :weight bold)
+    (t :inherit org-todo))
+  "Fifth color of the TODO keyword palette: orange."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-todo-6
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#00796b" :background "#e0f4f1" :weight bold)
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#4dd0c4" :background "#143834" :weight bold)
+    (t :inherit org-todo))
+  "Sixth color of the TODO keyword palette: teal."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-todo-7
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#455a64" :background "#eceff1" :weight bold)
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#b0bec5" :background "#2a3236" :weight bold)
+    (t :inherit org-todo))
+  "Seventh color of the TODO keyword palette: slate.
+Neutral rather than a hue, since every hue left (magenta, pink,
+brown) sits too close to one already in the palette."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-todo-8
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#7c5e10" :background "#fbf3d9" :weight bold)
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#e6c86e" :background "#3a3215" :weight bold)
+    (t :inherit org-todo))
+  "Eighth color of the TODO keyword palette: gold."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-todo-other
+  '((t :inherit shadow))
+  "Face of a TODO keyword not named in `org-roam-gt-list-todo-keyword-faces'."
+  :group 'org-roam-gt)
+
+(defcustom org-roam-gt-list-todo-keyword-faces nil
+  "Faces of chosen TODO keywords, as an alist of (KEYWORD . FACE).
+KEYWORD is a TODO keyword such as \"NEXT\".  When this alist is
+non-nil, only the keywords it names get a color; every other
+keyword is shown in `org-roam-gt-list-todo-other', so the colors
+stay few enough to tell apart.  When it is nil, keywords are
+colored from `org-roam-gt-list-todo-faces' instead.
+
+The faces `org-roam-gt-list-todo-1' to `org-roam-gt-list-todo-8'
+are the palette to choose from, for example:
+
+  \='((\"TODO\" . org-roam-gt-list-todo-1)
+    (\"NEXT\" . org-roam-gt-list-todo-2)
+    (\"DONE\" . org-roam-gt-list-todo-3))"
+  :type '(alist :key-type string :value-type face)
+  :group 'org-roam-gt)
+
+(defcustom org-roam-gt-list-todo-faces
+  '(org-roam-gt-list-todo-1 org-roam-gt-list-todo-2
+    org-roam-gt-list-todo-3 org-roam-gt-list-todo-4
+    org-roam-gt-list-todo-5 org-roam-gt-list-todo-6
+    org-roam-gt-list-todo-7 org-roam-gt-list-todo-8)
+  "Faces of the Todo column, assigned to keywords in turn.
+Used only while `org-roam-gt-list-todo-keyword-faces' is nil.
+A keyword takes the face at its position in `org-todo-keywords',
+wrapping around when there are more keywords than faces.  A
+keyword absent from `org-todo-keywords', such as one set by a
+file's #+TODO line, takes a face picked by its name, so it keeps
+the same color from one redraw to the next.  When this list is
+empty, every keyword is shown in `org-todo'."
+  :type '(repeat face)
+  :group 'org-roam-gt)
+
+;;;; Scheduled-date faces
+;;
+;; A scheduled date is colored by how late it is.  Today gets a calm
+;; teal of its own; overdue dates share one hue, rose, that deepens
+;; with age, kept apart from the red of priority A so a stale C item
+;; is not mistaken for an urgent one.  The stalest step is also bold,
+;; so it stands out without relying on color.  Future dates are left
+;; in `org-date'.
+
+(defface org-roam-gt-list-scheduled-today
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#1b6b63" :background "#dff3f1")
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#8fd8cf" :background "#173a37")
+    (t :inherit org-scheduled-today))
+  "Face of a scheduled date that is today."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-scheduled-late
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#8a2246" :background "#fbe3ea")
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#f2a7bf" :background "#3a1f29")
+    (t :inherit org-scheduled-previously))
+  "Face of a scheduled date a few days past."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-scheduled-overdue
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#7a1a3c" :background "#f6c9d7")
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#f7bdd0" :background "#552536")
+    (t :inherit org-scheduled-previously))
+  "Face of a scheduled date some weeks past."
+  :group 'org-roam-gt)
+
+(defface org-roam-gt-list-scheduled-stale
+  '((((class color) (min-colors 88) (background light))
+     :foreground "#5c0f2b" :background "#ef9fb8" :weight bold)
+    (((class color) (min-colors 88) (background dark))
+     :foreground "#ffd1df" :background "#73283f" :weight bold)
+    (t :inherit org-scheduled-previously :weight bold))
+  "Face of a scheduled date long past."
+  :group 'org-roam-gt)
+
+(defcustom org-roam-gt-list-scheduled-faces
+  '((0  . org-roam-gt-list-scheduled-today)
+    (1  . org-roam-gt-list-scheduled-late)
+    (8  . org-roam-gt-list-scheduled-overdue)
+    (31 . org-roam-gt-list-scheduled-stale))
+  "Faces of the Scheduled column by age, as an alist of (DAYS . FACE).
+DAYS is how many days ago the date must be, at least, for FACE to
+apply: 0 is today, 1 is yesterday.  The entry with the largest
+DAYS not above the date's age wins.  A date younger than every
+entry — one in the future, with the defaults — is shown in
+`org-date'."
+  :type '(alist :key-type integer :value-type face)
+  :group 'org-roam-gt)
+
 ;;;; State persistence
 
 (defcustom org-roam-gt-list-persist-state nil
@@ -212,6 +443,36 @@ Initialized from `org-roam-gt-list-columns'.")
   "Return NODE's TODO keyword, or an empty string when it has none."
   (or (org-roam-node-todo node) ""))
 
+(defun org-roam-gt-list--todo-keywords ()
+  "Return the keywords of `org-todo-keywords', in order.
+Fast-access keys and logging flags, as in \"TODO(t!)\", are
+removed, and so is the \"|\" separating active from done states."
+  (seq-uniq
+   (mapcar (lambda (keyword) (replace-regexp-in-string "(.*)\\'" "" keyword))
+           (seq-remove (lambda (keyword) (equal keyword "|"))
+                       (seq-mapcat (lambda (sequence)
+                                     (and (consp sequence) (cdr sequence)))
+                                   org-todo-keywords)))))
+
+(defun org-roam-gt-list--todo-face (node)
+  "Return the face of NODE's TODO cell.
+Looked up in `org-roam-gt-list-todo-keyword-faces' when it is set;
+otherwise chosen from `org-roam-gt-list-todo-faces' by the
+keyword's position in `org-todo-keywords'.  See those options."
+  (let ((todo (org-roam-node-todo node))
+        (faces org-roam-gt-list-todo-faces))
+    (cond
+     ((null todo) 'org-todo)
+     (org-roam-gt-list-todo-keyword-faces
+      (alist-get todo org-roam-gt-list-todo-keyword-faces
+                 'org-roam-gt-list-todo-other nil #'equal))
+     (faces
+      (nth (mod (or (seq-position (org-roam-gt-list--todo-keywords) todo)
+                    (sxhash-equal todo))
+                (length faces))
+           faces))
+     (t 'org-todo))))
+
 (defun org-roam-gt-list--date (node)
   "Return the modification time of NODE's file as a display string.
 Formatted with `org-roam-gt-list-date-format'.  Returns an empty
@@ -255,6 +516,20 @@ letter in the cookie, so ?A is returned as \"A\"."
   (let ((priority (org-roam-node-priority node)))
     (if (characterp priority) (char-to-string priority) "")))
 
+(defun org-roam-gt-list--priority-face (node)
+  "Return the face of NODE's priority cell.
+Looked up in `org-roam-gt-list-priority-faces', falling back to
+`org-priority'."
+  (alist-get (org-roam-node-priority node) org-roam-gt-list-priority-faces
+             'org-priority))
+
+(defun org-roam-gt-list--title-face (node)
+  "Return the face of NODE's title cell.
+The title takes the face of NODE's priority, so an A item stands
+out like its priority letter; a node whose priority has no face
+in `org-roam-gt-list-priority-faces' gets no face."
+  (alist-get (org-roam-node-priority node) org-roam-gt-list-priority-faces))
+
 (defun org-roam-gt-list--iso-date (timestamp)
   "Return the date part of TIMESTAMP, an ISO8601 string.
 Returns an empty string when TIMESTAMP is nil.  The database
@@ -268,6 +543,34 @@ only the date is displayed."
 (defun org-roam-gt-list--scheduled (node)
   "Return the date part of NODE's scheduled timestamp."
   (org-roam-gt-list--iso-date (org-roam-node-scheduled node)))
+
+(defun org-roam-gt-list--day-number (date)
+  "Return DATE, a YYYY-MM-DD string, as an absolute day number."
+  (calendar-absolute-from-gregorian
+   (list (string-to-number (substring date 5 7))
+         (string-to-number (substring date 8 10))
+         (string-to-number (substring date 0 4)))))
+
+(defun org-roam-gt-list--age-face (age)
+  "Return the face for a scheduled date AGE days in the past.
+AGE is negative for a future date.  See
+`org-roam-gt-list-scheduled-faces'."
+  (let ((applicable (seq-filter (lambda (entry) (<= (car entry) age))
+                                org-roam-gt-list-scheduled-faces)))
+    (if applicable
+        (cdr (seq-reduce (lambda (best entry)
+                           (if (> (car entry) (car best)) entry best))
+                         (cdr applicable) (car applicable)))
+      'org-date)))
+
+(defun org-roam-gt-list--scheduled-face (node)
+  "Return the face of NODE's scheduled cell, chosen by the date's age."
+  (let ((date (org-roam-gt-list--iso-date (org-roam-node-scheduled node))))
+    (if (< (length date) 10)
+        'org-date
+      (org-roam-gt-list--age-face
+       (- (org-roam-gt-list--day-number (org-roam-gt-list--today))
+          (org-roam-gt-list--day-number date))))))
 
 (defun org-roam-gt-list--deadline (node)
   "Return the date part of NODE's deadline timestamp."
@@ -309,7 +612,8 @@ Ties fall back to the title, so the order is stable."
   (list
    (cons 'todo      (list :name "Todo" :width 6
                           :value #'org-roam-gt-list--todo
-                          :face 'org-todo :sort t
+                          :face #'org-roam-gt-list--todo-face
+                          :sort t
                           :doc "TODO keyword of the node."))
    (cons 'date      (list :name "Date" :width 10
                           :value #'org-roam-gt-list--date
@@ -321,11 +625,13 @@ Ties fall back to the title, so the order is stable."
                           :doc "Tags of the node, comma-separated."))
    (cons 'priority  (list :name "P" :width 1
                           :value #'org-roam-gt-list--priority
-                          :face 'org-priority :sort t
+                          :face #'org-roam-gt-list--priority-face
+                          :sort t
                           :doc "Letter of the node's priority cookie."))
    (cons 'scheduled (list :name "Scheduled" :width 10
                           :value #'org-roam-gt-list--scheduled
-                          :face 'org-date :sort t
+                          :face #'org-roam-gt-list--scheduled-face
+                          :sort t
                           :doc "Scheduled date of the node."))
    (cons 'deadline  (list :name "Deadline" :width 10
                           :value #'org-roam-gt-list--deadline
@@ -342,7 +648,7 @@ Ties fall back to the title, so the order is stable."
                           :doc "Outline path above the node's own heading."))
    (cons 'title     (list :name "Title" :width 50
                           :value #'org-roam-gt-list--title
-                          :face nil
+                          :face #'org-roam-gt-list--title-face
                           :sort #'org-roam-gt-list--compare-title
                           :doc "Title of the node."))
    (cons 'file      (list :name "File" :width 30
@@ -358,7 +664,9 @@ on places it before them rather than after.
 Each entry is (KEY :name STRING :width INTEGER :value FN :face FACE
 :sort SORT :doc STRING).  The :value function is called with one
 `org-roam-node' and returns the cell's display string.  :face is
-applied to the cell, or nil for no face.  :sort is nil for a
+applied to the cell, or nil for no face; a function that does not
+also name a face is called with the node and returns the face, for
+a column whose face depends on the value.  :sort is nil for a
 column that cannot be sorted, t to sort by the displayed string,
 or a function called with two elements of
 `tabulated-list-entries'.
@@ -404,7 +712,12 @@ last displayed column, which has the rest of the line to itself:
 nothing follows it to be pushed out of place, so truncating it
 would discard text for no gain."
   (let* ((entry (org-roam-gt-list--column key))
-         (face (plist-get entry :face))
+         (spec (plist-get entry :face))
+         ;; `org-todo' names a face and a command alike, so a face
+         ;; must win over `functionp'.
+         (face (if (and (functionp spec) (not (facep spec)))
+                   (funcall spec node)
+                 spec))
          (raw (funcall (plist-get entry :value) node))
          (text (if expand
                    raw
