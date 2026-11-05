@@ -14,6 +14,8 @@ It does **not** patch org-roam source files.
 | `org-roam-gt-refile.el` | `org-roam-gt-refile`: refile to a `:target`, node-based types only, no advice |
 | `org-roam-gt-transient.el` | Opt-in speed-command menu built with `transient` |
 | `org-roam-gt-list.el` | `org-roam-gt-list`: read-only `*Org Roam Nodes*` buffer (column/filter registries, no advice on org-roam). Required by `org-roam-gt.el`, so it is always loaded — its bookmark handler must exist for saved views to jump |
+| `org-roam-gt-bookmark.el` | Bookmarks that record a node's ID and offset instead of a file position (no advice). Required by `org-roam-gt.el` so `org-roam-gt-bookmark-jump` exists even with the mode off |
+| `tests/test-org-roam-gt-bookmark.el` | Buttercup test suite (node bookmarks; real temp org-roam directory and database) |
 | `tests/test-org-roam-gt-capture.el` | Buttercup test suite (capture) |
 | `tests/test-org-roam-gt-refile.el` | Buttercup test suite (refile) |
 | `tests/test-org-roam-gt-canonicalize.el` | Buttercup test suite (symlink aliases; builds real symlink trees) |
@@ -101,6 +103,19 @@ revert into a buffer-local cache — sorting, filtering, and column changes
 redraw from it, so only `g` pays for a table scan. Rows are re-found by node
 id after a redraw, since `org-roam-node-list` builds fresh structs every read
 and no struct identity survives.
+
+`org-roam-gt-bookmark.el` installs no advice: it sets a buffer-local
+`bookmark-make-record-function` in Org buffers (via `org-mode-hook` at
+depth 90, so a record function another package installs there runs
+first). Outside a node or outside an org-roam file it calls the function
+it displaced (`org-roam-gt-bookmark--fallback`). The record stores the
+node's `id` and `offset` but no `filename` or `position`; the file is
+always found from the ID (database, then `org-id-locations`). The type
+shown in bookmark lists comes from the standard `bookmark-handler-type`
+symbol property. The jump re-finds the node start from the buffer text
+(`org-find-entry-with-id`), never from the database's `point`, so unsaved
+edits are honoured, and runs `bookmark-default-handler` narrowed to the
+node so context relocation cannot land in a neighbouring node.
 
 What each node-based target means *inside* the destination node lives in
 `org-roam-gt-capture-target-validate` and `org-roam-gt-capture-target-navigate`

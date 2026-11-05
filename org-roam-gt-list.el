@@ -1365,6 +1365,8 @@ they were when the bookmark was stored."
                               (bookmark-prop-get bookmark 'filters)
                               (bookmark-prop-get bookmark 'sort-key)))
 
+(put 'org-roam-gt-list-bookmark-jump 'bookmark-handler-type "Org-roam list")
+
 ;;;###autoload
 (defun org-roam-gt-list-open-view (columns filters sort-key)
   "Open the node list showing COLUMNS, FILTERS and SORT-KEY.

@@ -112,6 +112,7 @@ independently before enabling the mode:
 | ~org-roam-gt-check-duplicate-node-ids~           | refusing to index a repeated node ID   |
 | ~org-roam-gt-track-directory-operations~         | following directory renames and deletions |
 | ~org-roam-gt-scan-citations~                     | finding citations without parsing the buffer |
+| ~org-roam-gt-enable-node-bookmarks~              | bookmarks that record the node's ID      |
 
 #+begin_src emacs-lisp
 ;; Keep org-roam's default display template
@@ -537,6 +538,34 @@ outside ~org-roam-directory~ never reaches the database at all.
 
 Set ~org-roam-gt-track-directory-operations~ to nil to leave org-roam's
 behaviour untouched.
+
+** Bookmarks that follow a node
+
+An ordinary bookmark in an Org file (~C-x r m~, ~bookmark-set~) records
+the file and a position in it.  Move the heading into another file, or
+rename the file, and the bookmark no longer finds it.
+
+With ~org-roam-gt-mode~ enabled, a bookmark set inside an org-roam node
+records the node's ID instead, together with how far into the node point
+was.  The default name offered is the node's title.  Jumping to the
+bookmark finds the node wherever it now lives — through the org-roam
+database, then ~org-id-locations~ — and puts point at the same place in
+it.  The bookmark stores no file name or buffer position at all, only
+the ID, so nothing in it goes out of date when the node moves.  Each
+lookup is checked against the file itself, so a database that has not
+caught up with a move costs a lookup, not a wrong jump.
+
+As with ordinary bookmarks, the text around point is recorded and used
+to correct the position when the node has been edited since.  That
+search stays inside the node: it never carries point into a neighbouring
+node that happens to contain the same words.
+
+Outside a node, or in an Org file outside ~org-roam-directory~, the
+ordinary bookmark is made.
+
+Set ~org-roam-gt-enable-node-bookmarks~ to nil to make ordinary
+bookmarks everywhere.  Node bookmarks already saved keep working either
+way.
 
 ** Citations without a whole-buffer parse
 

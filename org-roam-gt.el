@@ -60,6 +60,11 @@
 ;; undefined fails to jump.
 (require 'org-roam-gt-list)
 
+;; Required unconditionally for the same reason:
+;; `org-roam-gt-bookmark-jump' is the handler of every node bookmark,
+;; and those must keep jumping with the mode off.
+(require 'org-roam-gt-bookmark)
+
 ;;; Version
 
 (defconst org-roam-gt-version "0.4"
@@ -211,6 +216,24 @@ its rows, pointing at a path that no longer exists, until the next
 With this enabled a directory rename clears the rows under the old path
 and indexes the files under the new one, and a directory deletion clears
 the rows of the files that are gone.
+
+Set before enabling `org-roam-gt-mode', or disable and re-enable the
+mode after changing."
+  :type 'boolean
+  :group 'org-roam-gt)
+
+(defcustom org-roam-gt-enable-node-bookmarks t
+  "When non-nil, bookmarks set inside an org-roam node record its ID.
+
+An ordinary bookmark in an Org buffer records a file and a position,
+so moving the node to another file, or renaming the file, breaks it.
+With this enabled \\[bookmark-set] inside a node of an org-roam file
+records the node's ID and the offset of point into the node, and
+jumping finds the node wherever it now is.  Outside a node the
+ordinary record is made.
+
+Bookmarks already recorded this way keep working when this is nil;
+only new bookmarks are affected.
 
 Set before enabling `org-roam-gt-mode', or disable and re-enable the
 mode after changing."
@@ -905,6 +928,8 @@ that is what makes the tree unread."
     (org-roam-gt-directory-operations--enable))
   (when org-roam-gt-scan-citations
     (org-roam-gt-citations--enable))
+  (when org-roam-gt-enable-node-bookmarks
+    (org-roam-gt-bookmark--enable))
   (when org-roam-gt-enable-capture-targets
     (org-roam-gt-capture--enable)))
 
@@ -917,6 +942,7 @@ that is what makes the tree unread."
   (org-roam-gt-duplicate-ids--disable)
   (org-roam-gt-directory-operations--disable)
   (org-roam-gt-citations--disable)
+  (org-roam-gt-bookmark--disable)
   (org-roam-gt-exclude-inheritance--disable)
   (when org-roam-gt-enable-capture-targets
     (org-roam-gt-capture--disable)))

@@ -13,6 +13,7 @@ PACKAGE = org-roam-gt
 EL_FILES = org-roam-gt-capture.el \
            org-roam-gt-refile.el \
            org-roam-gt-list.el \
+           org-roam-gt-bookmark.el \
            org-roam-gt.el \
            org-roam-gt-transient.el
 
