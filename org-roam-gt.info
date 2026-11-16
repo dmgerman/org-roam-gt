@@ -29,6 +29,7 @@ org-roam-gt
 * Refiling to a capture target::
 * One path per file::
 * Directory renames and deletions::
+* Bookmarks that follow a node::
 * Citations without a whole-buffer parse::
 * Speed commands::
 * Faster node search::
@@ -131,6 +132,7 @@ that need no mode at all:
 * Refiling to a capture target::
 * One path per file::
 * Directory renames and deletions::
+* Bookmarks that follow a node::
 * Citations without a whole-buffer parse::
 * Speed commands::
 * Faster node search::
@@ -198,6 +200,7 @@ Variable                                            Turns off
 ‘org-roam-gt-check-duplicate-node-ids’              refusing to index a repeated node ID
 ‘org-roam-gt-track-directory-operations’            following directory renames and deletions
 ‘org-roam-gt-scan-citations’                        finding citations without parsing the buffer
+‘org-roam-gt-enable-node-bookmarks’                 bookmarks that record the node's ID
 
      ;; Keep org-roam's default display template
      (setq org-roam-gt-enable-node-display-function nil)
@@ -634,7 +637,7 @@ stays visible:
 org-roam's behaviour untouched.
 
 
-File: org-roam-gt.info,  Node: Directory renames and deletions,  Next: Citations without a whole-buffer parse,  Prev: One path per file,  Up: org-roam-gt
+File: org-roam-gt.info,  Node: Directory renames and deletions,  Next: Bookmarks that follow a node,  Prev: One path per file,  Up: org-roam-gt
 
 1.9 Directory renames and deletions
 ===================================
@@ -667,9 +670,41 @@ outside ‘org-roam-directory’ never reaches the database at all.
 org-roam's behaviour untouched.
 
 
-File: org-roam-gt.info,  Node: Citations without a whole-buffer parse,  Next: Speed commands,  Prev: Directory renames and deletions,  Up: org-roam-gt
+File: org-roam-gt.info,  Node: Bookmarks that follow a node,  Next: Citations without a whole-buffer parse,  Prev: Directory renames and deletions,  Up: org-roam-gt
 
-1.10 Citations without a whole-buffer parse
+1.10 Bookmarks that follow a node
+=================================
+
+An ordinary bookmark in an Org file (‘C-x r m’, ‘bookmark-set’) records
+the file and a position in it.  Move the heading into another file, or
+rename the file, and the bookmark no longer finds it.
+
+   With ‘org-roam-gt-mode’ enabled, a bookmark set inside an org-roam
+node records the node's ID instead, together with how far into the node
+point was.  The default name offered is the node's title.  Jumping to
+the bookmark finds the node wherever it now lives — through the org-roam
+database, then ‘org-id-locations’ — and puts point at the same place in
+it.  The bookmark stores no file name or buffer position at all, only
+the ID, so nothing in it goes out of date when the node moves.  Each
+lookup is checked against the file itself, so a database that has not
+caught up with a move costs a lookup, not a wrong jump.
+
+   As with ordinary bookmarks, the text around point is recorded and
+used to correct the position when the node has been edited since.  That
+search stays inside the node: it never carries point into a neighbouring
+node that happens to contain the same words.
+
+   Outside a node, or in an Org file outside ‘org-roam-directory’, the
+ordinary bookmark is made.
+
+   Set ‘org-roam-gt-enable-node-bookmarks’ to nil to make ordinary
+bookmarks everywhere.  Node bookmarks already saved keep working either
+way.
+
+
+File: org-roam-gt.info,  Node: Citations without a whole-buffer parse,  Next: Speed commands,  Prev: Bookmarks that follow a node,  Up: org-roam-gt
+
+1.11 Citations without a whole-buffer parse
 ===========================================
 
 Saving a large file is slow, and most of the time goes to work whose
@@ -704,7 +739,7 @@ report no citations at all.
 
 File: org-roam-gt.info,  Node: Speed commands,  Next: Faster node search,  Prev: Citations without a whole-buffer parse,  Up: org-roam-gt
 
-1.11 Speed commands
+1.12 Speed commands
 ===================
 
 When ‘org-roam-gt-transient.el’ is loaded (see the opt-in section
@@ -724,7 +759,7 @@ heading.
 
 File: org-roam-gt.info,  Node: Faster node search,  Next: Node list buffer,  Prev: Speed commands,  Up: org-roam-gt
 
-1.12 Faster node search
+1.13 Faster node search
 =======================
 
 When you invoke ‘org-roam-node-find’, Emacs has to build the list of
@@ -742,7 +777,7 @@ The original template is restored if you disable the mode.
 
 File: org-roam-gt.info,  Node: Node list buffer,  Next: Development,  Prev: Faster node search,  Up: org-roam-gt
 
-1.13 Node list buffer
+1.14 Node list buffer
 =====================
 
 Org-roam shows you one node at a time.  ‘org-roam-node-find’ needs you
@@ -781,7 +816,7 @@ want it to catch up.
 
 File: org-roam-gt.info,  Node: What each row shows,  Next: Finding what you want,  Up: Node list buffer
 
-1.13.1 What each row shows
+1.14.1 What each row shows
 --------------------------
 
 Five columns are shown by default.  Five more are available and hidden:
@@ -805,6 +840,40 @@ in one file shows the same date; and it is what the list is sorted by
 when you open it, newest first, which is usually the fastest way back to
 whatever you were working on yesterday.
 
+   The ‘priority’ letter is colored by level, with a faint background: A
+in red, B in amber, C in blue.  The ‘title’ takes the same color as its
+node's priority, so an A item stands out even with the ‘priority’ column
+hidden.
+
+   Each ‘todo’ keyword is shown as a small badge: colored text on a
+faint tint of the same color.  There are eight badges,
+‘org-roam-gt-list-todo-1’ to ‘-8’ (red, blue, green, purple, orange,
+teal, slate, gold).  Eight colors is about as many as the eye tells
+apart, so if you use more keywords than that, name the ones that matter
+and let the rest be quiet:
+
+     (setq org-roam-gt-list-todo-keyword-faces
+           '(("TODO"    . org-roam-gt-list-todo-1)
+             ("NEXT"    . org-roam-gt-list-todo-2)
+             ("DONE"    . org-roam-gt-list-todo-3)))
+
+   Keywords missing from that list are shown in gray.  When the list is
+empty (the default), every keyword gets a badge, handed out in the order
+the keywords appear in ‘org-todo-keywords’ and repeating after eight;
+the order is the list ‘org-roam-gt-list-todo-faces’.
+
+   The ‘scheduled’ date is colored by how late it is: teal when it is
+today, and a rose that deepens as it falls behind — 1 to 7 days, 8 to 30
+days, and more than 30 days, the last also in bold.  Future dates are
+not colored.  The steps are set in ‘org-roam-gt-list-scheduled-faces’,
+as pairs of the minimum number of days late and a face.
+
+   All of these colors have light- and dark-theme variants; change them
+with ‘M-x customize-group RET org-roam-gt’ (faces
+‘org-roam-gt-list-priority-a’, ‘-b’, ‘-c’ and
+‘org-roam-gt-list-scheduled-today’, ‘-late’, ‘-overdue’, ‘-stale’), or
+map other priorities to faces in ‘org-roam-gt-list-priority-faces’.
+
    A value too long for its column is cut short and ends with ‘…’, so
 you can always tell that you are seeing part of it.  The exception is
 the right-most column, which has the rest of the window available and is
@@ -814,7 +883,7 @@ long paths stay readable.
 
 File: org-roam-gt.info,  Node: Finding what you want,  Next: Keys,  Prev: What each row shows,  Up: Node list buffer
 
-1.13.2 Finding what you want
+1.14.2 Finding what you want
 ----------------------------
 
   1. Sorting
@@ -935,7 +1004,7 @@ File: org-roam-gt.info,  Node: Finding what you want,  Next: Keys,  Prev: What e
 
 File: org-roam-gt.info,  Node: Keys,  Next: Saving a view you use often,  Prev: Finding what you want,  Up: Node list buffer
 
-1.13.3 Keys
+1.14.3 Keys
 -----------
 
 Key         Does
@@ -972,7 +1041,7 @@ added or edited since.
 
 File: org-roam-gt.info,  Node: Saving a view you use often,  Next: Choosing the columns,  Prev: Keys,  Up: Node list buffer
 
-1.13.4 Saving a view you use often
+1.14.4 Saving a view you use often
 ----------------------------------
 
 If you keep coming back to the same search — say your unfinished
@@ -1007,7 +1076,7 @@ Emacs sessions as well:
 
 File: org-roam-gt.info,  Node: Choosing the columns,  Next: Adding your own search condition,  Prev: Saving a view you use often,  Up: Node list buffer
 
-1.13.5 Choosing the columns
+1.14.5 Choosing the columns
 ---------------------------
 
 To change which columns you see, and in what order:
@@ -1031,7 +1100,7 @@ first if you want sorting by date to stay chronological.
 
 File: org-roam-gt.info,  Node: Adding your own search condition,  Prev: Choosing the columns,  Up: Node list buffer
 
-1.13.6 Adding your own search condition
+1.14.6 Adding your own search condition
 ---------------------------------------
 
 The searches offered by ‘/’ are entries in
@@ -1056,7 +1125,7 @@ you.
 
 File: org-roam-gt.info,  Node: Development,  Next: MELPA submission,  Prev: Node list buffer,  Up: org-roam-gt
 
-1.14 Development
+1.15 Development
 ================
 
 The repository ships a ‘Makefile’ that drives every dev workflow via a
@@ -1077,7 +1146,7 @@ on Emacs 30.1, 31.1, and snapshot.
 
 File: org-roam-gt.info,  Node: MELPA submission,  Prev: Development,  Up: org-roam-gt
 
-1.15 MELPA submission
+1.16 MELPA submission
 =====================
 
 The MELPA recipe lives at ‘melpa/org-roam-gt’; instructions for
@@ -1086,40 +1155,41 @@ submitting it upstream are in ‘melpa/README.md’.
 
 Tag Table:
 Node: Top238
-Node: org-roam-gt1496
-Node: Installation5099
-Node: Version5971
-Node: Selectively disabling features6364
-Node: Speed command menu (opt-in)8054
-Node: Hook-based extension API9107
-Node: New capture target types9926
-Node: (node TITLE-OR-ID)12275
-Node: (nodefunc FUNCTION)13019
-Node: (nodefunc+headline FUNCTION HEADLINE)13603
-Node: (node+headline TITLE-OR-ID HEADLINE)14157
-Node: (node+olp TITLE-OR-ID "h1" "h2" )15612
-Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )16301
-Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )17655
-Node: Template body loaded from a file18287
-Node: create-file guard19371
-Node: Refiling to a capture target20914
-Node: One path per file23462
-Node: Directory renames and deletions25665
-Node: Citations without a whole-buffer parse27351
-Node: Speed commands29131
-Node: Faster node search29805
-Node: Node list buffer30647
-Node: What each row shows32156
-Node: Finding what you want34030
-Ref: Sorting34214
-Ref: Searching34404
-Ref: Searching by scheduled date or deadline37645
-Node: Keys40004
-Node: Saving a view you use often41596
-Node: Choosing the columns42987
-Node: Adding your own search condition43926
-Node: Development45031
-Node: MELPA submission45885
+Node: org-roam-gt1529
+Node: Installation5165
+Node: Version6037
+Node: Selectively disabling features6430
+Node: Speed command menu (opt-in)8212
+Node: Hook-based extension API9265
+Node: New capture target types10084
+Node: (node TITLE-OR-ID)12433
+Node: (nodefunc FUNCTION)13177
+Node: (nodefunc+headline FUNCTION HEADLINE)13761
+Node: (node+headline TITLE-OR-ID HEADLINE)14315
+Node: (node+olp TITLE-OR-ID "h1" "h2" )15770
+Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )16459
+Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )17813
+Node: Template body loaded from a file18445
+Node: create-file guard19529
+Node: Refiling to a capture target21072
+Node: One path per file23620
+Node: Directory renames and deletions25823
+Node: Bookmarks that follow a node27499
+Node: Citations without a whole-buffer parse29089
+Node: Speed commands30866
+Node: Faster node search31540
+Node: Node list buffer32382
+Node: What each row shows33891
+Node: Finding what you want37551
+Ref: Sorting37735
+Ref: Searching37925
+Ref: Searching by scheduled date or deadline41166
+Node: Keys43525
+Node: Saving a view you use often45117
+Node: Choosing the columns46508
+Node: Adding your own search condition47447
+Node: Development48552
+Node: MELPA submission49406
 
 End Tag Table
 
