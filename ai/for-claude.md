@@ -561,8 +561,10 @@ locally.
 The `transient` dependency is NOT declared in `Package-Requires`
 because `emacs "30.1"` guarantees it (bundled since Emacs 28.1).
 `org-roam-gt-transient.el` calls `(require 'transient)` directly.
-The menu itself is opt-in: users load the file via
-`(require 'org-roam-gt-transient)`.  See `melpa/README.md` for the
+The menu itself is opt-in: users turn on the global minor mode
+`org-roam-gt-transient-mode`, which adds its functions to the
+enable/disable hooks (loading the file alone adds nothing, as
+melpazoid requires).  See `melpa/README.md` for the
 loading pattern.
 
 ## Design constraints

@@ -23,5 +23,5 @@ subdirectories are not part of the package.
 ## Opt-in speed-command menu
 
 `org-roam-gt-transient.el` provides a speed-command menu.  It is
-opt-in: users who want it do `(require 'org-roam-gt-transient)`;
-users who don't simply skip loading that file.
+opt-in: users who want it turn on `org-roam-gt-transient-mode`;
+loading the file alone changes nothing.

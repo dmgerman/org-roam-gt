@@ -68,8 +68,8 @@ From [[https://melpa.org/#/org-roam-gt][MELPA]]:
 (use-package org-roam-gt
   :ensure t
   :config
-  ;; Optional: load the speed-command menu (transient is bundled with Emacs)
-  (require 'org-roam-gt-transient)
+  ;; Optional: the speed-command menu (transient is bundled with Emacs)
+  (org-roam-gt-transient-mode 1)
   (org-roam-gt-mode 1))
 #+end_src
 
@@ -80,6 +80,7 @@ Or from a local checkout:
   :load-path "~/.emacs.d/modules/org-roam-gt"
   :config
   (require 'org-roam-gt-transient)
+  (org-roam-gt-transient-mode 1)
   (org-roam-gt-mode 1))
 #+end_src
 
@@ -87,8 +88,8 @@ To disable, call ~(org-roam-gt-mode -1)~.  All features are controlled
 by the mode and restore their previous state on disable.
 
 The menu uses ~transient~, which is bundled with Emacs — nothing extra
-to install.  Just ~(require 'org-roam-gt-transient)~ before enabling
-the mode.
+to install.  Just turn on ~org-roam-gt-transient-mode~, before or after
+enabling the mode.
 
 ** Version
 
@@ -135,26 +136,23 @@ re-enable:
 
 *** Speed command menu (opt-in)
 
-The speed command menu is self-contained in ~org-roam-gt-transient.el~.
-It uses ~org-roam-gt-enable-hook~ and ~org-roam-gt-disable-hook~ to
-register and de-register itself with the mode.
-
-To enable the menu, require it /before/ enabling the mode:
+The speed command menu is self-contained in ~org-roam-gt-transient.el~
+and controlled by the global minor mode ~org-roam-gt-transient-mode~.
+While it is on, the menu registers itself on ~org-roam-gt-enable-hook~
+and ~org-roam-gt-disable-hook~, so it is installed whenever
+~org-roam-gt-mode~ is enabled; turning it on while ~org-roam-gt-mode~ is
+already running installs the menu at once.
 
 #+begin_src emacs-lisp
-(require 'org-roam-gt-transient)   ; registers menu on the hooks
-(org-roam-gt-mode 1)               ; fires org-roam-gt-enable-hook, installs menu
+(org-roam-gt-transient-mode 1)   ; menu on key m while org-roam-gt-mode is on
+(org-roam-gt-mode 1)
 #+end_src
 
-To disable the menu entirely, simply do not load
-~org-roam-gt-transient.el~ — the menu key (~m~) will not be installed.
-
-If you want to remove the menu after the mode is already running:
+Loading ~org-roam-gt-transient.el~ by itself changes nothing.  To remove
+the menu, also from a running session, turn the mode off:
 
 #+begin_src emacs-lisp
-(remove-hook 'org-roam-gt-enable-hook  #'org-roam-gt-transient--enable)
-(remove-hook 'org-roam-gt-disable-hook #'org-roam-gt-transient--disable)
-(org-roam-gt-transient--disable)   ; clean up the current session
+(org-roam-gt-transient-mode -1)
 #+end_src
 
 *** Hook-based extension API

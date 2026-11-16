@@ -937,8 +937,12 @@ A no-op in buffers not derived from `org-roam-gt-list-mode'."
   (when (derived-mode-p 'org-roam-gt-list-mode)
     (org-roam-gt-list--state-changed)))
 
-(advice-add 'tabulated-list-sort :after
-            #'org-roam-gt-list--tabulated-sort-observer)
+(defun org-roam-gt-list-unload-function ()
+  "Remove the sort observer, for `unload-feature'.
+Return nil so the rest of the unloading proceeds as usual."
+  (advice-remove 'tabulated-list-sort
+                 #'org-roam-gt-list--tabulated-sort-observer)
+  nil)
 
 ;;;; Mode + keymap
 
@@ -1040,6 +1044,11 @@ to cycle through the sortable columns.
   (setq-local bookmark-make-record-function
               #'org-roam-gt-list--make-record)
   (setq-local mode-line-process '(:eval (org-roam-gt-list--mode-line)))
+  ;; Installed here rather than at load time, so that loading the
+  ;; package changes nothing outside it.  Adding the same advice again
+  ;; is a no-op, and the observer acts only in buffers of this mode.
+  (advice-add 'tabulated-list-sort :after
+              #'org-roam-gt-list--tabulated-sort-observer)
   (unless org-roam-gt-list--state-loaded
     (org-roam-gt-list--state-load))
   (org-roam-gt-list--state-apply)

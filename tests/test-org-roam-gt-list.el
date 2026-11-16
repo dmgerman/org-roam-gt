@@ -1019,7 +1019,34 @@ the node renderable."
 
   (it "signals when a row command runs with no node at point"
     (org-roam-gt-test-list--with-nodes nil
-      (expect (org-roam-gt-list--require-node) :to-throw 'user-error))))
+      (expect (org-roam-gt-list--require-node) :to-throw 'user-error)))
+
+  (it "installs the header-sort observer itself, and sorting records the view"
+    (let ((org-roam-gt-list--state nil)
+          (org-roam-gt-list--state-loaded t)
+          (changed 0))
+      (org-roam-gt-test-list--with-nodes nil
+        (expect (advice-member-p #'org-roam-gt-list--tabulated-sort-observer
+                                 'tabulated-list-sort)
+                :to-be-truthy)
+        (cl-letf (((symbol-function 'org-roam-gt-list--state-changed)
+                   (lambda () (setq changed (1+ changed)))))
+          (tabulated-list-sort
+           (seq-position (append tabulated-list-format nil) "Title"
+                         (lambda (entry name) (equal (car entry) name)))))
+        (expect changed :to-equal 1))))
+
+  (it "removes the observer when unloaded"
+    (advice-add 'tabulated-list-sort :after
+                #'org-roam-gt-list--tabulated-sort-observer)
+    (unwind-protect
+        (progn
+          (expect (org-roam-gt-list-unload-function) :to-be nil)
+          (expect (advice-member-p #'org-roam-gt-list--tabulated-sort-observer
+                                   'tabulated-list-sort)
+                  :not :to-be-truthy))
+      (advice-add 'tabulated-list-sort :after
+                  #'org-roam-gt-list--tabulated-sort-observer))))
 
 (provide 'test-org-roam-gt-list)
 

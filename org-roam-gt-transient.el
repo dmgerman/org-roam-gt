@@ -29,14 +29,14 @@
 ;; Provides the org-roam-gt speed command menu, built with `transient'.
 ;; `transient' is bundled with Emacs (guaranteed by the `emacs "30.1"'
 ;; Package-Requires floor), so no separate install is needed.  The menu
-;; itself is opt-in: load this file to enable it.
+;; itself is opt-in: turn on `org-roam-gt-transient-mode'.
 ;;
-;;   (require 'org-roam-gt-transient)
+;;   (org-roam-gt-transient-mode 1)
 ;;
-;; When loaded, this file registers a hook that installs the menu into
+;; While that mode is on, the menu is installed into
 ;; `org-speed-commands' (bound to the letter `m') whenever
-;; `org-roam-gt-mode' is enabled, and removes it when the mode is
-;; disabled.
+;; `org-roam-gt-mode' is enabled, and removed when the mode is
+;; disabled.  Loading this file alone changes nothing.
 
 ;;; Code:
 
@@ -73,8 +73,25 @@
    ("r" "Refile"           org-roam-refile)
    ("x" "Extract subtree"  org-roam-extract-subtree)])
 
-(add-hook 'org-roam-gt-enable-hook  #'org-roam-gt-transient--enable)
-(add-hook 'org-roam-gt-disable-hook #'org-roam-gt-transient--disable)
+;;;###autoload
+(define-minor-mode org-roam-gt-transient-mode
+  "Offer the org-roam-gt menu as an Org speed command, on the key m.
+While this mode is on, the menu is installed into `org-speed-commands'
+whenever `org-roam-gt-mode' is enabled and removed when it is
+disabled; turning this mode on while `org-roam-gt-mode' is already on
+installs it at once."
+  :global t
+  :group 'org-roam-gt
+  (if org-roam-gt-transient-mode
+      (progn
+        (add-hook 'org-roam-gt-enable-hook  #'org-roam-gt-transient--enable)
+        (add-hook 'org-roam-gt-disable-hook #'org-roam-gt-transient--disable)
+        (when (and (bound-and-true-p org-roam-gt-mode)
+                   (not org-roam-gt-transient--speed-commands-save))
+          (org-roam-gt-transient--enable)))
+    (remove-hook 'org-roam-gt-enable-hook  #'org-roam-gt-transient--enable)
+    (remove-hook 'org-roam-gt-disable-hook #'org-roam-gt-transient--disable)
+    (org-roam-gt-transient--disable)))
 
 (provide 'org-roam-gt-transient)
 

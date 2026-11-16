@@ -287,7 +287,7 @@ Prefixes every tag with #."
    width))
 
 (defun org-roam-gt--format-file (file)
-  "Simply remove org-roam-directory from the path in FILE."
+  "Simply remove `org-roam-directory' from the path in FILE."
   (substring file (length org-roam-directory)))
 
 (defun org-roam-gt-default-node-format (node)
@@ -894,9 +894,9 @@ that is what makes the tree unread."
   (advice-remove 'org-element-parse-buffer #'org-roam-gt-element-parse-buffer-skipped)
   (advice-remove 'org-roam-db-update-file #'org-roam-gt-update-file-skipping-parse))
 
-;; speed commands are defined in org-roam-gt-transient.el.
-; Load that file and it will register itself on org-roam-gt-enable-hook
-; and org-roam-gt-disable-hook automatically.
+;; speed commands are defined in org-roam-gt-transient.el.  Turning on
+;; `org-roam-gt-transient-mode' registers them on org-roam-gt-enable-hook
+;; and org-roam-gt-disable-hook.
 
 (defvar org-roam-gt-node-template-save org-roam-node-display-template
   "Saved value of `org-roam-node-display-template' for later restoration.")
@@ -915,7 +915,7 @@ that is what makes the tree unread."
 ;; define a minor mode to enable/disable the changes
 
 (defun org-roam-gt-mode-enable ()
-  "Callback when org-roam-gt-mode is enabled."
+  "Callback when `org-roam-gt-mode' is enabled."
   (run-hooks 'org-roam-gt-enable-hook)
   (org-roam-gt-set-node-template)
   (when org-roam-gt-enable-path-canonicalization
@@ -934,7 +934,7 @@ that is what makes the tree unread."
     (org-roam-gt-capture--enable)))
 
 (defun org-roam-gt-mode-disable ()
-  "Callback when org-roam-gt-mode is disabled."
+  "Callback when `org-roam-gt-mode' is disabled."
   (message "disabling org-roam-gt mode")
   (run-hooks 'org-roam-gt-disable-hook)
   (org-roam-gt-reset-node-template)

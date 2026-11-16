@@ -94,7 +94,9 @@ terminate.
 `org-roam-node-list`. The one advice it does install is `:after` on
 `tabulated-list-sort`, guarded by `derived-mode-p`, because sorting by
 clicking a column header never passes through a command of the mode and is
-otherwise unobservable for state persistence. Columns and filters are each a
+otherwise unobservable for state persistence. The mode installs it (not
+the file at load time, which melpazoid flags), and
+`org-roam-gt-list-unload-function` removes it. Columns and filters are each a
 plain alist registry (`org-roam-gt-list-column-alist`,
 `org-roam-gt-list-filter-alist`); `org-roam-gt-list-columns` selects a subset
 of the column registry *and* its left-to-right order, so showing, hiding, and

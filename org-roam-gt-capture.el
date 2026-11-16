@@ -79,7 +79,7 @@
 ;; Dynamic variables `org-read-date' writes into to communicate whether the
 ;; user supplied a time and/or an end-of-range time.  We `let'-bind them
 ;; below to suppress those writes from leaking into callers; declaring them
-;; here makes the bindings dynamic under `lexical-binding: t' and silences
+;; here makes the bindings dynamic under lexical binding and silences
 ;; the unused-lexical-variable byte-compiler warning.
 (defvar org-time-was-given)
 (defvar org-end-time-was-given)

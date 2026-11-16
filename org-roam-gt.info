@@ -151,8 +151,8 @@ Once accepted by MELPA (https://melpa.org/):
      (use-package org-roam-gt
        :ensure t
        :config
-       ;; Optional: load the speed-command menu (transient is bundled with Emacs)
-       (require 'org-roam-gt-transient)
+       ;; Optional: the speed-command menu (transient is bundled with Emacs)
+       (org-roam-gt-transient-mode 1)
        (org-roam-gt-mode 1))
 
    Or from a local checkout:
@@ -161,14 +161,15 @@ Once accepted by MELPA (https://melpa.org/):
        :load-path "~/.emacs.d/modules/org-roam-gt"
        :config
        (require 'org-roam-gt-transient)
+       (org-roam-gt-transient-mode 1)
        (org-roam-gt-mode 1))
 
    To disable, call ‘(org-roam-gt-mode -1)’.  All features are
 controlled by the mode and restore their previous state on disable.
 
    The menu uses ‘transient’, which is bundled with Emacs — nothing
-extra to install.  Just ‘(require 'org-roam-gt-transient)’ before
-enabling the mode.
+extra to install.  Just turn on ‘org-roam-gt-transient-mode’, before or
+after enabling the mode.
 
 
 File: org-roam-gt.info,  Node: Version,  Next: Selectively disabling features,  Prev: Installation,  Up: org-roam-gt
@@ -228,23 +229,20 @@ File: org-roam-gt.info,  Node: Speed command menu (opt-in),  Next: Hook-based ex
 1.3.1 Speed command menu (opt-in)
 ---------------------------------
 
-The speed command menu is self-contained in ‘org-roam-gt-transient.el’.
-It uses ‘org-roam-gt-enable-hook’ and ‘org-roam-gt-disable-hook’ to
-register and de-register itself with the mode.
+The speed command menu is self-contained in ‘org-roam-gt-transient.el’
+and controlled by the global minor mode ‘org-roam-gt-transient-mode’.
+While it is on, the menu registers itself on ‘org-roam-gt-enable-hook’
+and ‘org-roam-gt-disable-hook’, so it is installed whenever
+‘org-roam-gt-mode’ is enabled; turning it on while ‘org-roam-gt-mode’ is
+already running installs the menu at once.
 
-   To enable the menu, require it _before_ enabling the mode:
+     (org-roam-gt-transient-mode 1)   ; menu on key m while org-roam-gt-mode is on
+     (org-roam-gt-mode 1)
 
-     (require 'org-roam-gt-transient)   ; registers menu on the hooks
-     (org-roam-gt-mode 1)               ; fires org-roam-gt-enable-hook, installs menu
+   Loading ‘org-roam-gt-transient.el’ by itself changes nothing.  To
+remove the menu, also from a running session, turn the mode off:
 
-   To disable the menu entirely, simply do not load
-‘org-roam-gt-transient.el’ — the menu key (‘m’) will not be installed.
-
-   If you want to remove the menu after the mode is already running:
-
-     (remove-hook 'org-roam-gt-enable-hook  #'org-roam-gt-transient--enable)
-     (remove-hook 'org-roam-gt-disable-hook #'org-roam-gt-transient--disable)
-     (org-roam-gt-transient--disable)   ; clean up the current session
+     (org-roam-gt-transient-mode -1)
 
 
 File: org-roam-gt.info,  Node: Hook-based extension API,  Prev: Speed command menu (opt-in),  Up: Selectively disabling features
@@ -1157,39 +1155,39 @@ Tag Table:
 Node: Top238
 Node: org-roam-gt1529
 Node: Installation5165
-Node: Version6037
-Node: Selectively disabling features6430
-Node: Speed command menu (opt-in)8212
-Node: Hook-based extension API9265
-Node: New capture target types10084
-Node: (node TITLE-OR-ID)12433
-Node: (nodefunc FUNCTION)13177
-Node: (nodefunc+headline FUNCTION HEADLINE)13761
-Node: (node+headline TITLE-OR-ID HEADLINE)14315
-Node: (node+olp TITLE-OR-ID "h1" "h2" )15770
-Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )16459
-Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )17813
-Node: Template body loaded from a file18445
-Node: create-file guard19529
-Node: Refiling to a capture target21072
-Node: One path per file23620
-Node: Directory renames and deletions25823
-Node: Bookmarks that follow a node27499
-Node: Citations without a whole-buffer parse29089
-Node: Speed commands30866
-Node: Faster node search31540
-Node: Node list buffer32382
-Node: What each row shows33891
-Node: Finding what you want37551
-Ref: Sorting37735
-Ref: Searching37925
-Ref: Searching by scheduled date or deadline41166
-Node: Keys43525
-Node: Saving a view you use often45117
-Node: Choosing the columns46508
-Node: Adding your own search condition47447
-Node: Development48552
-Node: MELPA submission49406
+Node: Version6080
+Node: Selectively disabling features6473
+Node: Speed command menu (opt-in)8255
+Node: Hook-based extension API9156
+Node: New capture target types9975
+Node: (node TITLE-OR-ID)12324
+Node: (nodefunc FUNCTION)13068
+Node: (nodefunc+headline FUNCTION HEADLINE)13652
+Node: (node+headline TITLE-OR-ID HEADLINE)14206
+Node: (node+olp TITLE-OR-ID "h1" "h2" )15661
+Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )16350
+Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )17704
+Node: Template body loaded from a file18336
+Node: create-file guard19420
+Node: Refiling to a capture target20963
+Node: One path per file23511
+Node: Directory renames and deletions25714
+Node: Bookmarks that follow a node27390
+Node: Citations without a whole-buffer parse28980
+Node: Speed commands30757
+Node: Faster node search31431
+Node: Node list buffer32273
+Node: What each row shows33782
+Node: Finding what you want37442
+Ref: Sorting37626
+Ref: Searching37816
+Ref: Searching by scheduled date or deadline41057
+Node: Keys43416
+Node: Saving a view you use often45008
+Node: Choosing the columns46399
+Node: Adding your own search condition47338
+Node: Development48443
+Node: MELPA submission49297
 
 End Tag Table
 
