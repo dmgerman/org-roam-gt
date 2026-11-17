@@ -7,7 +7,7 @@
 ;; Assisted-by: Claude:claude-opus-4-7
 ;; Keywords: outlines, hypermedia
 ;; URL: https://github.com/dmgerman/org-roam-gt
-;; Version: 0.4
+;; Version: 0.5
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;

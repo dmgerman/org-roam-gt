@@ -7,7 +7,7 @@
 ;; Assisted-by: Claude:claude-opus-4-7
 ;; Keywords: outlines, hypermedia
 ;; URL: https://github.com/dmgerman/org-roam-gt
-;; Version: 0.4
+;; Version: 0.5
 ;; Package-Requires: ((emacs "30.1") (org "9.8") (org-roam "2.2.2"))
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -67,7 +67,7 @@
 
 ;;; Version
 
-(defconst org-roam-gt-version "0.4"
+(defconst org-roam-gt-version "0.5"
   "Version of org-roam-gt.
 Must be kept in sync with the `Version:' header of this file.")
 
