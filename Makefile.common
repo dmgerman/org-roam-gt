@@ -260,8 +260,14 @@ info: $(INFO_FILE) $(INFO_DIR)
 # filename matches `#+texinfo_filename'.  Without this, Org produces
 # <src>.texi -> $(PACKAGE).info (from @setfilename) and then its
 # post-processing looks for <src>.info and fails.
+#
+# The copy omits every line that holds only an image link to a badge
+# ([[URL][file:...-badge.svg]], e.g. the MELPA badge): Info cannot
+# display images, so Org would export the link as raw text at the top
+# of the manual.  The badge stays in INFO_SRC for the repository page.
 $(INFO_FILE): $(INFO_SRC)
-	cp $(INFO_SRC) $(PACKAGE).org
+	sed -E '/^\[\[[^]]*\]\[file:[^]]*-badge\.svg\]\][[:space:]]*$$/d' \
+	  $(INFO_SRC) > $(PACKAGE).org
 	$(EMACS) -Q --batch \
 	  --eval "(setq load-prefer-newer t)" \
 	  --eval "(require 'ox-texinfo)" \

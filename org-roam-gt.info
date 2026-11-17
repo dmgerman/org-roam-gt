@@ -146,7 +146,7 @@ File: org-roam-gt.info,  Node: Installation,  Next: Version,  Up: org-roam-gt
 1.1 Installation
 ================
 
-Once accepted by MELPA (https://melpa.org/):
+From MELPA (https://melpa.org/#/org-roam-gt):
 
      (use-package org-roam-gt
        :ensure t
@@ -1155,39 +1155,39 @@ Tag Table:
 Node: Top238
 Node: org-roam-gt1529
 Node: Installation5165
-Node: Version6080
-Node: Selectively disabling features6473
-Node: Speed command menu (opt-in)8255
-Node: Hook-based extension API9156
-Node: New capture target types9975
-Node: (node TITLE-OR-ID)12324
-Node: (nodefunc FUNCTION)13068
-Node: (nodefunc+headline FUNCTION HEADLINE)13652
-Node: (node+headline TITLE-OR-ID HEADLINE)14206
-Node: (node+olp TITLE-OR-ID "h1" "h2" )15661
-Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )16350
-Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )17704
-Node: Template body loaded from a file18336
-Node: create-file guard19420
-Node: Refiling to a capture target20963
-Node: One path per file23511
-Node: Directory renames and deletions25714
-Node: Bookmarks that follow a node27390
-Node: Citations without a whole-buffer parse28980
-Node: Speed commands30757
-Node: Faster node search31431
-Node: Node list buffer32273
-Node: What each row shows33782
-Node: Finding what you want37442
-Ref: Sorting37626
-Ref: Searching37816
-Ref: Searching by scheduled date or deadline41057
-Node: Keys43416
-Node: Saving a view you use often45008
-Node: Choosing the columns46399
-Node: Adding your own search condition47338
-Node: Development48443
-Node: MELPA submission49297
+Node: Version6081
+Node: Selectively disabling features6474
+Node: Speed command menu (opt-in)8256
+Node: Hook-based extension API9157
+Node: New capture target types9976
+Node: (node TITLE-OR-ID)12325
+Node: (nodefunc FUNCTION)13069
+Node: (nodefunc+headline FUNCTION HEADLINE)13653
+Node: (node+headline TITLE-OR-ID HEADLINE)14207
+Node: (node+olp TITLE-OR-ID "h1" "h2" )15662
+Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )16351
+Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )17705
+Node: Template body loaded from a file18337
+Node: create-file guard19421
+Node: Refiling to a capture target20964
+Node: One path per file23512
+Node: Directory renames and deletions25715
+Node: Bookmarks that follow a node27391
+Node: Citations without a whole-buffer parse28981
+Node: Speed commands30758
+Node: Faster node search31432
+Node: Node list buffer32274
+Node: What each row shows33783
+Node: Finding what you want37443
+Ref: Sorting37627
+Ref: Searching37817
+Ref: Searching by scheduled date or deadline41058
+Node: Keys43417
+Node: Saving a view you use often45009
+Node: Choosing the columns46400
+Node: Adding your own search condition47339
+Node: Development48444
+Node: MELPA submission49298
 
 End Tag Table
 
