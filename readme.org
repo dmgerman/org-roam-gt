@@ -5,6 +5,8 @@
 #+texinfo_dir_title: org-roam-gt: (org-roam-gt).
 #+texinfo_dir_desc: Faster node display and richer capture targets for org-roam.
 
+[[https://melpa.org/#/org-roam-gt][file:https://melpa.org/packages/org-roam-gt-badge.svg]]
+
 * org-roam-gt
 
 Org-roam is a powerful knowledge management system, but its defaults
@@ -49,7 +51,7 @@ no mode at all:
 
 ** Installation
 
-Once accepted by [[https://melpa.org/][MELPA]]:
+From [[https://melpa.org/#/org-roam-gt][MELPA]]:
 
 #+begin_src emacs-lisp
 (use-package org-roam-gt

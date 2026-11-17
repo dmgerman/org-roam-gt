@@ -122,7 +122,7 @@ File: org-roam-gt.info,  Node: Installation,  Next: Version,  Up: org-roam-gt
 1.1 Installation
 ================
 
-Once accepted by MELPA (https://melpa.org/):
+From MELPA (https://melpa.org/#/org-roam-gt):
 
      (use-package org-roam-gt
        :ensure t
@@ -752,28 +752,28 @@ Tag Table:
 Node: Top238
 Node: org-roam-gt1303
 Node: Installation4197
-Node: Version5069
-Node: Selectively disabling features5462
-Node: Speed command menu (opt-in)7152
-Node: Hook-based extension API8205
-Node: New capture target types9024
-Node: (node TITLE-OR-ID)11373
-Node: (nodefunc FUNCTION)12117
-Node: (nodefunc+headline FUNCTION HEADLINE)12701
-Node: (node+headline TITLE-OR-ID HEADLINE)13255
-Node: (node+olp TITLE-OR-ID "h1" "h2" )14710
-Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )15399
-Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )16753
-Node: Template body loaded from a file17385
-Node: create-file guard18469
-Node: Refiling to a capture target20012
-Node: One path per file22560
-Node: Directory renames and deletions24763
-Node: Citations without a whole-buffer parse26449
-Node: Speed commands28229
-Node: Faster node search28903
-Node: Development29740
-Node: MELPA submission30596
+Node: Version5070
+Node: Selectively disabling features5463
+Node: Speed command menu (opt-in)7153
+Node: Hook-based extension API8206
+Node: New capture target types9025
+Node: (node TITLE-OR-ID)11374
+Node: (nodefunc FUNCTION)12118
+Node: (nodefunc+headline FUNCTION HEADLINE)12702
+Node: (node+headline TITLE-OR-ID HEADLINE)13256
+Node: (node+olp TITLE-OR-ID "h1" "h2" )14711
+Node: (node+olp+datetree TITLE-OR-ID "h1" "h2" )15400
+Node: (nodefunc+olp+datetree FUNCTION "h1" "h2" )16754
+Node: Template body loaded from a file17386
+Node: create-file guard18470
+Node: Refiling to a capture target20013
+Node: One path per file22561
+Node: Directory renames and deletions24764
+Node: Citations without a whole-buffer parse26450
+Node: Speed commands28230
+Node: Faster node search28904
+Node: Development29741
+Node: MELPA submission30597
 
 End Tag Table
 
