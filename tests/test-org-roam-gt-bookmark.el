@@ -126,7 +126,10 @@
             (let ((record (org-roam-gt-test-bm--record-at outside "the target")))
               (expect (bookmark-prop-get record 'id) :to-be nil)
               (expect (bookmark-prop-get record 'handler) :to-be nil)
-              (expect (bookmark-get-filename record) :to-equal outside))
+              ;; bookmark.el abbreviates the name, so a temp dir under
+              ;; $HOME (as on GitHub runners) records it as "~/...".
+              (expect (expand-file-name (bookmark-get-filename record))
+                      :to-equal outside))
           (kill-buffer (find-buffer-visiting outside))
           (delete-file outside)))))
 
